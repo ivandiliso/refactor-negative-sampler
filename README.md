@@ -2,6 +2,19 @@
 
 ## Folder Structure
 
+```
+📁 data
+    📁 YAGO4-20
+    📁 YAGO39K   
+📁 doc          
+📁 script       
+📁 src          
+    📁 extension
+    📁 utils
+    📁 model
+    📁 notebooks
+    📁 temp
+```
 
 
 ## Dataset, Preprocessing and Reasoning

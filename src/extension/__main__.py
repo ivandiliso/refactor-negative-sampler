@@ -6,7 +6,7 @@ from pykeen.triples import TriplesFactory
 from pykeen.sampling import BernoulliNegativeSampler
 from pykeen.sampling.filtering import PythonSetFilterer
 from extended_filtering import NullPythonSetFilterer
-from extended_sampling import SubSetNegativeSampler, CorruptNegativeSampler
+from extended_sampling import SubSetNegativeSampler, CorruptNegativeSampler, TypedNegativeSampler
 
 
 
@@ -113,7 +113,9 @@ sampler = CorruptNegativeSampler(
 
 negatives = sampler.sample(triples_factory.mapped_triples)
 
-#print(negatives)
+print(negatives)
+
+
 
 
 

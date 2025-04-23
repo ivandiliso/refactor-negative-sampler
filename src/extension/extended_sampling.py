@@ -11,6 +11,9 @@ import math
 from pykeen.constants import TARGET_TO_INDEX
 
 
+INDEX_TO_TARGET = {v:k for k,v in TARGET_TO_INDEX.items()}
+
+
 class SubSetNegativeSampler(NegativeSampler, ABC):
     """ Abstract Class Handling static negative sampling, requires implementing
     a method able to calculate the correct subset pool of negative for each
@@ -68,7 +71,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         total_num_negatives = negative_batch.shape[0]
 
         for i in range(total_num_negatives):
-            self._corrupt_triple(negative_batch[i], target[i])
+            self._corrupt_triple(negative_batch[i], INDEX_TO_TARGET[int(target[i])])
 
         return negative_batch.view(*batch_shape, self.num_negs_per_pos, 3)
 
@@ -98,15 +101,17 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
     
     
     def _corrupt_triple(self, triple: torch.LongTensor, target: Target):
-        negative_pool = self.subset[triple[1]][TARGET_TO_INDEX[target]]
-        triple[target] = negative_pool[torch.randperm(len(negative_pool))[:1]]
+        negative_pool = self.subset[int(triple[1])][target]
+        triple[TARGET_TO_INDEX[target]] = negative_pool[torch.randperm(len(negative_pool))[:1]]
 
 
 
 class TypedNegativeSampler(SubSetNegativeSampler):
     def __init__(self, *, mapped_triples, num_entities=None, num_relations=None, num_negs_per_pos=None, filtered=False, filterer=None, filterer_kwargs=None, domain_range_dict=None, entity_classes_dict=None):
-        super().__init__(mapped_triples=mapped_triples, num_entities=num_entities, num_relations=num_relations, num_negs_per_pos=num_negs_per_pos, filtered=filtered, filterer=filterer, filterer_kwargs=filterer_kwargs)
+        super().__init__(mapped_triples=mapped_triples, num_entities=num_entities, num_relations=num_relations, num_negs_per_pos=num_negs_per_pos, filtered=filtered, filterer=filterer, filterer_kwargs=filterer_kwargs, domain_range_dict=domain_range_dict, entity_classes_dict=entity_classes_dict)
   
 
+    def _generate_subset(self, mapped_triples, **kwargs):
+        print(kwargs)
 
 

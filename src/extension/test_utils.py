@@ -47,3 +47,14 @@ def pretty_print(type, str):
     match type:
         case "t":
             print(f"[{color.RED}{str}{color.END}]")
+
+
+def additional_data_loader(triples_factory: TriplesFactory, relation_domain_range: dict, entity_classes: dict):
+    """_summary_
+
+    Args:
+        triples_factory (TriplesFactory): _description_
+        relation_domain_range (dict): _description_
+        entity_classes (dict): _description_
+    """
+
