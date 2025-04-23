@@ -11,7 +11,7 @@ from extended_sampling import CorruptNegativeSampler
 # Initial Global Variables Configuration 
 ################################################################################
 config = {
-    "home_path"     : Path().cwd() / "refactor",
+    "home_path"     : Path().cwd(),
     "dataset_name"  : "YAGO4-20"
 }
 config["data_path"] = config["home_path"] / "data" / config["dataset_name"]
@@ -57,8 +57,8 @@ result = pipeline(
         batch_size=256,
         label_smoothing=0.0,
     ),
-    evaluation_kwargs=dict(batch_size=1024),
-    evaluator_kwargs=dict(batch_size=1024),
+    evaluation_kwargs=dict(batch_size=256),
+    evaluator_kwargs=dict(batch_size=256),
     device="mps",
     random_seed=42
 )

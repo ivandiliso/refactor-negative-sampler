@@ -101,17 +101,66 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
     
     
     def _corrupt_triple(self, triple: torch.LongTensor, target: Target):
-        negative_pool = self.subset[int(triple[1])][target]
+        rel = int(triple[1])
+        negative_pool = self.subset[rel][target]
         triple[TARGET_TO_INDEX[target]] = negative_pool[torch.randperm(len(negative_pool))[:1]]
 
 
 
 class TypedNegativeSampler(SubSetNegativeSampler):
-    def __init__(self, *, mapped_triples, num_entities=None, num_relations=None, num_negs_per_pos=None, filtered=False, filterer=None, filterer_kwargs=None, domain_range_dict=None, entity_classes_dict=None):
-        super().__init__(mapped_triples=mapped_triples, num_entities=num_entities, num_relations=num_relations, num_negs_per_pos=num_negs_per_pos, filtered=filtered, filterer=filterer, filterer_kwargs=filterer_kwargs, domain_range_dict=domain_range_dict, entity_classes_dict=entity_classes_dict)
-  
+    def __init__(self, *, mapped_triples, num_entities=None, num_relations=None, num_negs_per_pos=None, filtered=False, filterer=None, filterer_kwargs=None, relation_domain_range_dict=None, entity_classes_dict=None):
+        super().__init__(mapped_triples=mapped_triples, num_entities=num_entities, num_relations=num_relations, num_negs_per_pos=num_negs_per_pos, filtered=filtered, filterer=filterer, filterer_kwargs=filterer_kwargs, relation_domain_range_dict=relation_domain_range_dict, entity_classes_dict=entity_classes_dict)
 
+        self.relation_domain_range = relation_domain_range_dict
+        self.mapping = {
+            "head" : "domain",
+            "tail" : "range"
+        }
+
+    def _corrupt_triple(self, triple, target):
+        rel = int(triple[1])
+        target_class = self.relation_domain_range[rel][self.mapping[target]]
+        print(f"Corrupting Triple {triple} on {target}")
+        print(f"Relation {rel} has {target} of class {target_class}")
+        if target_class != "None":
+            negative_pool = self.subset[target_class]
+            print(f"The size of negative pool is {len(negative_pool)}")
+            print(negative_pool)
+            if len(negative_pool) > 0:
+                print(torch.randperm(len(negative_pool))[:1])
+                triple[TARGET_TO_INDEX[target]] = negative_pool[torch.randperm(len(negative_pool))[:1]]
+            else:
+                triple[:] = torch.tensor([-1,-1,-1], device=triple.device, dtype=triple.dtype)
+        else:
+            triple[:] = torch.tensor([-1,-1,-1], device=triple.device, dtype=triple.dtype)
+
+        print(f"New Triple {triple}")
+        print("")
+
+    
     def _generate_subset(self, mapped_triples, **kwargs):
-        print(kwargs)
+
+        entity_classes = kwargs.get("entity_classes_dict")
+        relation_domain_range = kwargs.get("relation_domain_range_dict")
+
+        classes_dict = dict()
+
+        for _, domain_range_dict in relation_domain_range.items():
+            for classes_name in domain_range_dict.values():
+                if classes_name != "None":
+                    classes_dict[classes_name] = []
+
+        for entity_id, classes_names in entity_classes.items():
+            for class_name in classes_names:
+                if class_name in classes_dict:
+                    classes_dict[class_name].append(entity_id)
+
+        for class_name, entity_ids in classes_dict.items():
+            classes_dict[class_name] = torch.unique(torch.tensor(entity_ids))
+        
+        return classes_dict
+
+        
+
 
 

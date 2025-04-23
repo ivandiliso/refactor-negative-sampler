@@ -1,3 +1,9 @@
+"""
+Author: Ivan Diliso
+Description: Performance and usability evaluation of implemented negative samplers
+"""
+
+
 import pykeen
 from pykeen.triples import TriplesFactory
 from pathlib import Path
@@ -6,8 +12,9 @@ from test_utils import *
 from pykeen.pipeline import pipeline
 from pykeen.sampling.filtering import PythonSetFilterer
 from extended_filtering import NullPythonSetFilterer
-from extended_sampling import CorruptNegativeSampler
+from extended_sampling import CorruptNegativeSampler, TypedNegativeSampler
 from extended_dataset import OnMemoryDataset
+import torch
 
 
 # Initial Global Variables Configuration 
@@ -32,6 +39,25 @@ print(tabulate(
 ))
 
 
+# Testing Sampling Techniques
+################################################################################
+sampler = TypedNegativeSampler(
+    mapped_triples=dataset.training.mapped_triples,
+    filtered=True,
+    filterer=NullPythonSetFilterer(mapped_triples=dataset.training.mapped_triples),
+    num_negs_per_pos = 5,
+    entity_classes_dict = dataset.entity_id_to_classes,
+    relation_domain_range_dict = dataset.relation_id_to_domain_range
+)
+
+
+print(dataset.relation_to_id)
+
+negatives = sampler.sample(dataset.training.mapped_triples[torch.randperm(len(dataset.training.mapped_triples))][:10])
+
+
+
+print(negatives)
 
 
 
