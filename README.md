@@ -16,6 +16,35 @@
     📁 temp
 ```
 
+## Todos and Progress
+
+### Data
+
+Progress relative to **YAGO4-20** dataset
+
+- ![](https://geps.dev/progress/100) Custom Dataset
+- ![](https://geps.dev/progress/100) Domain Range Metadata
+- ![](https://geps.dev/progress/100) Class Memebership Metadata
+- ![](https://geps.dev/progress/0) Reasoned Metadata
+
+### Negative Samplers
+
+- ![](https://geps.dev/progress/100) Random (Already Available in PyKeen)
+- ![](https://geps.dev/progress/100) Bernoulli (Already Available in PyKeen)
+- ![](https://geps.dev/progress/90) Corrupt
+- ![](https://geps.dev/progress/90) Typed
+- ![](https://geps.dev/progress/5) Relational
+- ![](https://geps.dev/progress/0) NearestNeighbour
+
+
+### Training 
+
+- ![](https://geps.dev/progress/0) Hyperparameter Optimization
+- ![](https://geps.dev/progress/0) Training Loop
+- ![](https://geps.dev/progress/0) Evaluation Loop
+
+
+
 
 ## Dataset, Preprocessing and Reasoning
 
