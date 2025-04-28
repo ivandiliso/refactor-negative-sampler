@@ -12,6 +12,7 @@ from pykeen.sampling import NegativeSampler
 from pykeen.triples import CoreTriplesFactory
 from pykeen.typing import BoolTensor, EntityMapping, LongTensor, MappedTriples, Target
 from torch.utils.data import Dataset
+from functools import lru_cache 
 
 INDEX_TO_TARGET = {v: k for k, v in TARGET_TO_INDEX.items()}
 SWAP_TARGET = {"head": "tail", "tail": "head"}
@@ -282,53 +283,23 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
         if self.local_file.is_file():
             print("[RelationalNegativeSampler] Loading Pre-Computed Subset")
             with open(self.local_file, "rb") as f:
-                subset = pickle.load(f)
+                subset = torch.load(f, weights_only=False)
 
         else:
             print("[RelationalNegativeSampler] Generating Subset")
             for entity_id in tqdm.tqdm(range(self.num_entities)):
 
-                entity_subset = {
-                    "head": {
-                        relation_id: dict() for relation_id in range(self.num_relations)
-                    },
-                    "tail": {
-                        relation_id: dict() for relation_id in range(self.num_relations)
-                    },
-                }
+                entity_dict = {
+                    "head" : mapped_triples[mapped_triples[:, HEAD] == entity_id],
+                    "tail" : mapped_triples[mapped_triples[:, TAIL] == entity_id]
+                } 
 
-                entity_as_head = mapped_triples[mapped_triples[:, HEAD] == entity_id]
-                entity_as_tail = mapped_triples[mapped_triples[:, TAIL] == entity_id]
-
-                for relation_id in range(self.num_relations):
-
-                    # In both cases we take all the relationships different than the current one, as stated in the
-                    # original formualtion
-
-                    # Taking tails connected to the ENTITY_ID as head, for relation that are NOT relation_ID
-                    # This is the set of available tail entity when ENTITY_ID is the HEAD
-                    entity_subset["tail"][relation_id] = entity_as_head[
-                        entity_as_head[:, REL] != relation_id, TAIL
-                    ]
-
-                    # Taking heads connected to the ENTITY_ID as tail, for relation that are NOT relation_ID
-                    # This is the set of available head entity when ENTITY_ID is the TAIL
-                    entity_subset["head"][relation_id] = entity_as_tail[
-                        entity_as_tail[:, REL] != relation_id, HEAD
-                    ]
-
-                subset[entity_id] = entity_subset
-
-            print(getsizeof(subset))
-
-            print(f"[RelationalNegativeSampler] Saved Subset as {self.local_file}")
+                subset[entity_id] = entity_dict
 
             with open(self.local_file, "wb") as f:
                 torch.save(subset, f)
 
-        print("MARIOOoo")
-
-        # LRU CACHE FOR FUCTION 
+            print(f"[RelationalNegativeSampler] Saved Subset as {self.local_file}")
 
         return subset
 
@@ -336,13 +307,30 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
 
         # If corrupting HEAD we take the TAIL entity to use as a pivot for the subset
         # If corrupting TAIL we take the HEAD entity to use as a pivot for the subset
-        pivot_entity = triple[TARGET_TO_INDEX[SWAP_TARGET[target]]]
-        rel = triple[REL]
+        pivot_entity = int(triple[TARGET_TO_INDEX[SWAP_TARGET[target]]])
+        rel = int(triple[REL])
+
+        print("____________________")
+        print(f" Corruping {triple} on {target} so taking {pivot_entity} as pivot")
 
         # Get the subset of element with
-        negative_pool = self.subset[int(pivot_entity)][target][int(rel)]
+        negative_pool = self._get_subset(pivot_entity, rel, target)
+
+        print(negative_pool)
 
         if len(negative_pool) > 0:
             triple[TARGET_TO_INDEX[target]] = self._choose_from_pool(negative_pool)
         else:
             self._dummy_corrupt_triple(triple)
+
+
+    @lru_cache(maxsize=1024, typed=False)
+    def _get_subset(self, entity, rel, target):
+        # All the triples that 
+        # oppure se appare come tail se il target è head 
+        pivot_entity_as_inv_t = self.subset[entity][SWAP_TARGET[target]]
+        return pivot_entity_as_inv_t[pivot_entity_as_inv_t[:, REL] != rel, TARGET_TO_INDEX[target]]
+
+
+        
+

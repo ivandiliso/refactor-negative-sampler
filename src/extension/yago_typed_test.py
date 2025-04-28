@@ -69,6 +69,9 @@ mapped_triples = torch.tensor([
 mapped_triples = dataset.training.mapped_triples
 
 
+print(mapped_triples[mapped_triples[:, 2] == 68057])
+
+
 local_file = Path().cwd() / "relational_save.bin"
 
 
@@ -79,9 +82,11 @@ sampler = RelationalNegativeSampler(
     filterer=NullPythonSetFilterer(
         mapped_triples=mapped_triples
     ),
-    num_negs_per_pos=5,
+    num_negs_per_pos=2,
     local_file=local_file
 )
+
+#print(sampler.subset)
 
 #print(dataset.relation_to_id)
 
@@ -104,9 +109,9 @@ sampler = RelationalNegativeSampler(
 
 #print(negatives)
 
-print("Generating Negatives")
+#print("Generating Negatives")
 
-negatives = sampler.sample(mapped_triples[:10])
+negatives = sampler.sample(mapped_triples[100:120])
 
 
 print(negatives)
