@@ -31,10 +31,11 @@ Progress relative to **YAGO4-20** dataset
 
 - ![](https://geps.dev/progress/100) Random (Already Available in PyKeen)
 - ![](https://geps.dev/progress/100) Bernoulli (Already Available in PyKeen)
-- ![](https://geps.dev/progress/90) Corrupt
+- ![](https://geps.dev/progress/90) Corrupt (Called PositiveInstance in our own work)
 - ![](https://geps.dev/progress/90) Typed
-- ![](https://geps.dev/progress/5) Relational
-- ![](https://geps.dev/progress/0) NearestNeighbour
+- ![](https://geps.dev/progress/90) Relational
+- ![](https://geps.dev/progress/10) NearestNeighbour 
+- ![](https://geps.dev/progress/0) NearMiss (Called Adversarial in our own work)
 
 
 ### Training 
