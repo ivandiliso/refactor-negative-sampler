@@ -337,13 +337,7 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
 
 
 
-
-
-class SubSetNegativeSampler(NegativeSampler, ABC):
-    """Abstract Class Handling static negative sampling, requires implementing
-    a method able to calculate the correct subset pool of negative for each
-    entity in the triples set
-    """
+class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
 
     def __init__(
         self,
@@ -355,9 +349,14 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         filtered=False,
         filterer=None,
         filterer_kwargs=None,
-        sampler_model: ERModel  = None,
+        local_file=None,
+        sampling_model: ERModel = None,
         **kwargs,
     ):
+
+        self.local_file = Path(local_file)
+        self.sampling_model = sampling_model
+
         super().__init__(
             mapped_triples=mapped_triples,
             num_entities=num_entities,
@@ -366,12 +365,19 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             filtered=filtered,
             filterer=filterer,
             filterer_kwargs=filterer_kwargs,
+            **kwargs,
         )
 
-        self.samper_model = ERModel
+    def _generate_subset(self, mapped_triples, **kwargs):
+        pass
 
 
 
+    def _corrupt_triple(self, triple, target):
+        pass
 
-    def corrupt_batch(self, positive_batch: MappedTriples) -> MappedTriples:
+
+
+    @lru_cache(maxsize=1024, typed=False)
+    def _get_subset(self, entity, rel, target):
         pass

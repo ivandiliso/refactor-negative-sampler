@@ -3,17 +3,19 @@
 ## Folder Structure
 
 ```
-📁 data
+📁 data             -> Dataset used during traning, validation and testing
     📁 YAGO4-20
     📁 YAGO39K   
-📁 doc          
-📁 script       
-📁 src          
-    📁 extension
-    📁 utils
-    📁 model
-    📁 notebooks
-    📁 temp
+📁 doc              -> Documentations and logs
+📁 model
+    📂 embedding    -> Embedding models checkpoints
+    📂 sampling     -> Checkpoints for models used in dynamic sampling
+📁 script           -> Single execution files, settings etc     
+📁 src              -> Source code
+    📁 extension    -> Extensions of PyKeen classes for negative sampling
+    📁 utils        -> Utility files, libraries, logging
+    📁 notebooks    -> Testing, single exectuion and code evaluation notebooks
+    📁 temp         -> Temporary files 
 ```
 
 ## Todos and Progress

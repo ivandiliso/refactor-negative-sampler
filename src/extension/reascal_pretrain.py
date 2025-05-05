@@ -79,21 +79,23 @@ print(tabulate(
 ################################################################################
 
 
+"""
 model = RESCAL(
     triples_factory=dataset.training,
     embedding_dim=128,
     entity_initializer=torch.nn.init.xavier_uniform_,
     relation_initializer=torch.nn.init.xavier_uniform_
 )
-
-
 """
+
+
+
 model = TransE(
     triples_factory = dataset.training,
     embedding_dim=128,
     scoring_fct_norm=2
 )
-"""
+
 
 
 negative_sampler = BasicNegativeSampler(
@@ -106,11 +108,6 @@ negative_sampler = BasicNegativeSampler(
 )
 
 
-print(negative_sampler.sample(dataset.training.mapped_triples[:10]))
-
-
-
-
 result = pipeline(
     dataset=dataset,
     model=model,
@@ -120,20 +117,20 @@ result = pipeline(
     negative_sampler=negative_sampler,
     evaluator=RankBasedEvaluator,
     training_kwargs=dict(
-        num_epochs=60,
+        num_epochs=59,
         batch_size=2048
     ),
-    device=torch.device("cuda"),
+    device=torch.device("mps"),
     random_seed=42,
-    evaluation_kwargs=dict(batch_size=4096),
+    evaluation_kwargs=dict(batch_size=2048),
     evaluator_kwargs=dict(
         filtered=True,
-        batch_size=4096),
+        batch_size=1024),
 
 )
 
 
-result.save_to_directory('rescal_2_fixed_yago420')
+result.save_to_directory('model/transe_yago420')
 
 
 
