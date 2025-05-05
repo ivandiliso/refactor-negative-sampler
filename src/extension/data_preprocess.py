@@ -4,6 +4,7 @@ import json
 
 home = Path().cwd()  / "data" / "YAGO4-20"
 
+
 def clean_name(name):
     return name.split("/")[-1]
 

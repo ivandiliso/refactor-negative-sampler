@@ -13,12 +13,16 @@ from pykeen.triples import CoreTriplesFactory
 from pykeen.typing import BoolTensor, EntityMapping, LongTensor, MappedTriples, Target
 from torch.utils.data import Dataset
 from functools import lru_cache 
+from pykeen.models import TransE, RESCAL, ERModel
 
 INDEX_TO_TARGET = {v: k for k, v in TARGET_TO_INDEX.items()}
 SWAP_TARGET = {"head": "tail", "tail": "head"}
 HEAD = 0
 REL = 1
 TAIL = 2
+
+
+
 
 
 class SubSetNegativeSampler(NegativeSampler, ABC):
@@ -332,5 +336,42 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
         return pivot_entity_as_inv_t[pivot_entity_as_inv_t[:, REL] != rel, TARGET_TO_INDEX[target]]
 
 
-        
 
+
+
+class SubSetNegativeSampler(NegativeSampler, ABC):
+    """Abstract Class Handling static negative sampling, requires implementing
+    a method able to calculate the correct subset pool of negative for each
+    entity in the triples set
+    """
+
+    def __init__(
+        self,
+        *,
+        mapped_triples,
+        num_entities=None,
+        num_relations=None,
+        num_negs_per_pos=None,
+        filtered=False,
+        filterer=None,
+        filterer_kwargs=None,
+        sampler_model: ERModel  = None,
+        **kwargs,
+    ):
+        super().__init__(
+            mapped_triples=mapped_triples,
+            num_entities=num_entities,
+            num_relations=num_relations,
+            num_negs_per_pos=num_negs_per_pos,
+            filtered=filtered,
+            filterer=filterer,
+            filterer_kwargs=filterer_kwargs,
+        )
+
+        self.samper_model = ERModel
+
+
+
+
+    def corrupt_batch(self, positive_batch: MappedTriples) -> MappedTriples:
+        pass

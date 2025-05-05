@@ -74,7 +74,7 @@ print(mapped_triples[mapped_triples[:, 2] == 68057])
 
 local_file = Path().cwd() / "relational_save.bin"
 
-
+print(local_file)
 
 sampler = RelationalNegativeSampler(
     mapped_triples=mapped_triples,
