@@ -12,17 +12,16 @@ from pykeen.sampling import NegativeSampler
 from pykeen.triples import CoreTriplesFactory
 from pykeen.typing import BoolTensor, EntityMapping, LongTensor, MappedTriples, Target
 from torch.utils.data import Dataset
-from functools import lru_cache 
+from functools import lru_cache
 from pykeen.models import TransE, RESCAL, ERModel
+from scipy.spatial import KDTree
+
 
 INDEX_TO_TARGET = {v: k for k, v in TARGET_TO_INDEX.items()}
 SWAP_TARGET = {"head": "tail", "tail": "head"}
 HEAD = 0
 REL = 1
 TAIL = 2
-
-
-
 
 
 class SubSetNegativeSampler(NegativeSampler, ABC):
@@ -294,9 +293,9 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
             for entity_id in tqdm.tqdm(range(self.num_entities)):
 
                 entity_dict = {
-                    "head" : mapped_triples[mapped_triples[:, HEAD] == entity_id],
-                    "tail" : mapped_triples[mapped_triples[:, TAIL] == entity_id]
-                } 
+                    "head": mapped_triples[mapped_triples[:, HEAD] == entity_id],
+                    "tail": mapped_triples[mapped_triples[:, TAIL] == entity_id],
+                }
 
                 subset[entity_id] = entity_dict
 
@@ -327,14 +326,14 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
         else:
             self._dummy_corrupt_triple(triple)
 
-
     @lru_cache(maxsize=1024, typed=False)
     def _get_subset(self, entity, rel, target):
-        # All the triples that 
-        # oppure se appare come tail se il target è head 
+        # All the triples that
+        # oppure se appare come tail se il target è head
         pivot_entity_as_inv_t = self.subset[entity][SWAP_TARGET[target]]
-        return pivot_entity_as_inv_t[pivot_entity_as_inv_t[:, REL] != rel, TARGET_TO_INDEX[target]]
-
+        return pivot_entity_as_inv_t[
+            pivot_entity_as_inv_t[:, REL] != rel, TARGET_TO_INDEX[target]
+        ]
 
 
 class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
@@ -354,8 +353,8 @@ class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
         **kwargs,
     ):
 
-        self.local_file = Path(local_file)
-        self.sampling_model = sampling_model
+        object.__setattr__(self, "local_file", Path(local_file))
+        object.__setattr__(self, "sampling_model", sampling_model)
 
         super().__init__(
             mapped_triples=mapped_triples,
@@ -369,15 +368,58 @@ class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
         )
 
     def _generate_subset(self, mapped_triples, **kwargs):
-        pass
 
+        subset = dict()
+        subset["positive_triples"] = mapped_triples
+        subset["entity_representations"] = (
+            self.sampling_model.entity_representations[0]().cpu().detach().numpy()
+        )
 
+        return subset
 
     def _corrupt_triple(self, triple, target):
-        pass
 
+        negative_pool, kdtree = self._get_subset(
+            entity=int(triple[TARGET_TO_INDEX[SWAP_TARGET[target]]]),
+            rel=int(triple[REL]),
+            target=target,
+        )
+
+        search_entity_id = int(triple[TARGET_TO_INDEX[target]])
+        search_entity = self.subset["entity_representations"][search_entity_id]
+
+        distances, indices = kdtree.query(search_entity, k=self.num_negs_per_pos)
+        
+        negative_pool = negative_pool[indices[indices != len(negative_pool)]]
+
+        triple[TARGET_TO_INDEX[target]] = self._choose_from_pool(negative_pool)
 
 
     @lru_cache(maxsize=1024, typed=False)
     def _get_subset(self, entity, rel, target):
-        pass
+        """Returns all the real negative entity given a entity and the constructed kdtree, a relation and the target
+        for the corruption
+
+        """
+
+        pivot_id = TARGET_TO_INDEX[SWAP_TARGET[target]]
+        target_id = TARGET_TO_INDEX[target]
+
+        positive_pool = self.subset["positive_triples"][
+            self.subset["positive_triples"][:, pivot_id] == entity
+        ]
+        positive_pool = positive_pool[positive_pool[:, REL] == rel][:, target_id]
+
+        negative_pool = torch.arange(0, self.num_entities, step=1)
+
+        mask = torch.full_like(negative_pool, fill_value=True, dtype=torch.bool)
+        mask[positive_pool] = False
+
+        negative_pool = negative_pool[mask].numpy()
+
+        kdtree = KDTree(
+            data=self.subset["entity_representations"][negative_pool],
+            leafsize=self.num_negs_per_pos,
+        )
+
+        return negative_pool, kdtree

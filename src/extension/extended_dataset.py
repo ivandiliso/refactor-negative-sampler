@@ -6,11 +6,13 @@ import json
 import ast
 import pandas as pd
 
-ENTITY_TO_ID_FILENAME = "entity_to_id.tsv"
-RELATION_TO_ID_FILENAME = "relation_to_id.tsv"
+ENTITY_TO_ID_FILENAME = "mapping/entity_to_id.tsv"
+RELATION_TO_ID_FILENAME = "mapping/relation_to_id.tsv"
 TRAIN_SPLIT_FILENAME = "train.txt"
 VALID_SPLIT_FILENAME = "valid.txt"
 TEST_SPLIT_FILENAME = "test.txt"
+DOMAIN_RANGE_METATDATA_FILENAME = "metadata/relation_domain_range.json"
+CLASS_MEMBERSHIP_METADATA_FILENAME = "metadata/entity_classes.json"
 
 
 class OnMemoryDataset(Dataset):
@@ -64,16 +66,25 @@ class OnMemoryDataset(Dataset):
         """
         self.data_path = Path(data_path)
 
-        entity_id_mapping = pd.read_csv(self.data_path / ENTITY_TO_ID_FILENAME, sep="\t").to_dict()
-        relation_id_mapping = pd.read_csv(self.data_path / RELATION_TO_ID_FILENAME, sep="\t").to_dict()
+        entity_id_mapping = {
+            str(t[1]): int(t[0])
+            for t in pd.read_csv(
+                self.data_path / ENTITY_TO_ID_FILENAME, sep="\t"
+            ).to_numpy()
+        }
 
-        print(entity_id_mapping)
+        relation_id_mapping = {
+            str(t[1]): int(t[0])
+            for t in pd.read_csv(
+                self.data_path / RELATION_TO_ID_FILENAME, sep="\t"
+            ).to_numpy()
+        }
 
         self.training = TriplesFactory.from_path(
-            path=self.data_path / TRAIN_SPLIT_FILENAME, 
+            path=self.data_path / TRAIN_SPLIT_FILENAME,
             create_inverse_triples=False,
             entity_to_id=entity_id_mapping,
-            relation_to_id=relation_id_mapping
+            relation_to_id=relation_id_mapping,
         )
 
         self.testing = TriplesFactory.from_path(
@@ -103,7 +114,7 @@ class OnMemoryDataset(Dataset):
         Returns:
             dict: Dictionary of entity id to list of class names
         """
-        with open(self.data_path / "entity_classes.json", "r") as f:
+        with open(self.data_path / CLASS_MEMBERSHIP_METADATA_FILENAME, "r") as f:
             data = json.load(f)
 
         return {self.entity_to_id[k]: v for k, v in data.items()}
@@ -115,7 +126,7 @@ class OnMemoryDataset(Dataset):
         Returns:
             dict: Dictionary of relation is to dict with domain and range classes
         """
-        with open(self.data_path / "relation_domain_range.json", "r") as f:
+        with open(self.data_path / DOMAIN_RANGE_METATDATA_FILENAME, "r") as f:
             data = json.load(f)
 
         return {
