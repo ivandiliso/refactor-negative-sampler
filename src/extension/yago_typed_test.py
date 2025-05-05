@@ -18,7 +18,8 @@ from extended_sampling import (
     CorruptNegativeSampler,
     RelationalNegativeSampler,
     TypedNegativeSampler,
-    NearestNeighbourNegativeSampler
+    NearestNeighbourNegativeSampler,
+    NearestNeighbourNegativeSampler_Optimized
 )
 from pykeen.models import TransE
 from pykeen.pipeline import pipeline
@@ -127,13 +128,13 @@ local_file = Path().cwd() / "nn_save.bin"
 print(local_file)
 
 
-sampler = NearestNeighbourNegativeSampler(
+sampler = NearestNeighbourNegativeSampler_Optimized(
     mapped_triples=mapped_triples,
     filtered=True,
     filterer=PythonSetFilterer(mapped_triples=mapped_triples),
     local_file=local_file,
     sampling_model=sampling_model,
-    num_negs_per_pos=20
+    num_negs_per_pos=100
 )
 
 # print(sampler.subset)
@@ -161,8 +162,14 @@ sampler = NearestNeighbourNegativeSampler(
 
 # print("Generating Negatives")
 
+logger = SimpleLogger()
 
-negatives = sampler.sample(mapped_triples[0:2])
+
+logger.start()
+
+negatives = sampler.sample(mapped_triples[0:2048])
+
+logger.end()
 
 
 print(negatives)

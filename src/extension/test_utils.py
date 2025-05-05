@@ -6,6 +6,8 @@ import pykeen.utils
 import torch
 import torch_geometric
 import pykeen
+from datetime import datetime
+from timeit import default_timer as timer
 
 
 def set_random_seed_all(seed: int) -> None:
@@ -48,3 +50,19 @@ def pretty_print(type, str):
     match type:
         case "t":
             print(f"[{color.RED}{str}{color.END}]")
+
+
+class SimpleLogger():
+    def __init__(self):
+        self.time = 0
+        self.str = ""
+    
+    def start(self, str=""):
+        self.str = str
+        print(f"[{color.RED}START{color.END}] {str}")
+        self.time = timer()
+
+    def end(self):
+        self.time = timer() - self.time
+        print(f"[{color.GREEN}DONE{color.END} ] {self.str} in {color.CYAN}{self.time:09.4f}{color.END}s")
+    
