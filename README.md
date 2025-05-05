@@ -36,8 +36,8 @@ Progress relative to **YAGO4-20** dataset
 - ![](https://geps.dev/progress/90) Corrupt (Called PositiveInstance in our own work)
 - ![](https://geps.dev/progress/90) Typed
 - ![](https://geps.dev/progress/90) Relational
-- ![](https://geps.dev/progress/80) NearestNeighbour 
-- ![](https://geps.dev/progress/0) NearMiss (Called Adversarial in our own work)
+- ![](https://geps.dev/progress/90) NearestNeighbour 
+- ![](https://geps.dev/progress/15) NearMiss (Called Adversarial in our own work)
 
 #### Relational 
 

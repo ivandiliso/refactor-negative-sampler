@@ -86,6 +86,20 @@ sampling_model = torch.load(
     weights_only=False
 )
 
+def sampling_model_prediction(model, hrt_batch, targets):
+
+    out = torch.zeros((hrt_batch.size(0), model.entity_representations[0]().size(1)), device=hrt_batch.device)
+    
+    # Head
+    out[targets == 0] = model.entity_representations[0](hrt_batch[targets == 0, 2]) - model.relation_representations[0](hrt_batch[targets == 0, 1])
+
+    # Tails
+    out[targets == 2] = model.entity_representations[0](hrt_batch[targets == 2, 0]) + model.relation_representations[0](hrt_batch[targets == 2, 1])
+
+    return out
+
+
+
 print(sampling_model)
 
 
@@ -113,9 +127,12 @@ mapped_triples = torch.tensor(
         [1, 1, 3],
         [2, 0, 3],
         [2, 0, 4],
-    ]
+    ], device=torch.device("mps")
 )
 
+print(sampling_model_prediction(sampling_model, mapped_triples, torch.tensor([0,2,2,2,0,0,0,2,0,2], device=torch.device("mps"))))
+
+exit(0)
 
 mapped_triples = dataset.training.mapped_triples
 
