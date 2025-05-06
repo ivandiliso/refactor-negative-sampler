@@ -19,7 +19,6 @@ from extended_sampling import (
     RelationalNegativeSampler,
     TypedNegativeSampler,
     NearestNeighbourNegativeSampler,
-    NearestNeighbourNegativeSampler_Optimized,
     NearMissNegativeSampler
 )
 from pykeen.models import TransE
