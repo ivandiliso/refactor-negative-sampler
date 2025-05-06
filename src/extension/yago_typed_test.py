@@ -19,7 +19,8 @@ from extended_sampling import (
     RelationalNegativeSampler,
     TypedNegativeSampler,
     NearestNeighbourNegativeSampler,
-    NearestNeighbourNegativeSampler_Optimized
+    NearestNeighbourNegativeSampler_Optimized,
+    NearMissNegativeSampler
 )
 from pykeen.models import TransE
 from pykeen.pipeline import pipeline
@@ -86,6 +87,8 @@ sampling_model = torch.load(
     weights_only=False
 )
 
+sampling_model = sampling_model.to(torch.device("mps"))
+
 def sampling_model_prediction(model, hrt_batch, targets):
 
     out = torch.zeros((hrt_batch.size(0), model.entity_representations[0]().size(1)), device=hrt_batch.device)
@@ -132,10 +135,9 @@ mapped_triples = torch.tensor(
 
 print(sampling_model_prediction(sampling_model, mapped_triples, torch.tensor([0,2,2,2,0,0,0,2,0,2], device=torch.device("mps"))))
 
-exit(0)
 
 mapped_triples = dataset.training.mapped_triples
-
+mapped_triples = mapped_triples.to(torch.device("mps"))
 
 #print(mapped_triples[mapped_triples[:, 2] == 68057])
 
@@ -145,13 +147,16 @@ local_file = Path().cwd() / "nn_save.bin"
 print(local_file)
 
 
-sampler = NearestNeighbourNegativeSampler_Optimized(
+sampler = NearMissNegativeSampler(
     mapped_triples=mapped_triples,
     filtered=True,
-    filterer=PythonSetFilterer(mapped_triples=mapped_triples),
+    filterer=NullPythonSetFilterer(mapped_triples=mapped_triples),
     local_file=local_file,
     sampling_model=sampling_model,
-    num_negs_per_pos=100
+    num_negs_per_pos=100,
+    prediction_function=sampling_model_prediction,
+    batch_size=1024,
+    device=torch.device("mps")
 )
 
 # print(sampler.subset)
@@ -182,11 +187,14 @@ sampler = NearestNeighbourNegativeSampler_Optimized(
 logger = SimpleLogger()
 
 
-logger.start()
+logger.start("SAMPLING BATCH")
 
-negatives = sampler.sample(mapped_triples[0:2048])
+negatives = sampler.sample(mapped_triples[:4096])
 
 logger.end()
 
 
+
 print(negatives)
+print(negatives[1].shape)
+print(torch.sum(negatives[1]))

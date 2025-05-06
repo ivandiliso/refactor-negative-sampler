@@ -7,7 +7,8 @@ from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple, Union, c
 
 import torch
 import tqdm as tqdm
-from pykeen.constants import TARGET_TO_INDEX
+from collections.abc import Callable
+from test_utils import SimpleLogger
 from pykeen.sampling import NegativeSampler
 from pykeen.triples import CoreTriplesFactory
 from pykeen.typing import BoolTensor, EntityMapping, LongTensor, MappedTriples, Target
@@ -16,13 +17,16 @@ from functools import lru_cache
 from pykeen.models import TransE, RESCAL, ERModel
 from scipy.spatial import KDTree
 import numpy as np
-
-
-INDEX_TO_TARGET = {v: k for k, v in TARGET_TO_INDEX.items()}
-SWAP_TARGET = {"head": "tail", "tail": "head"}
-HEAD = 0
-REL = 1
-TAIL = 2
+from extended_constants import (
+    HEAD,
+    TAIL,
+    REL,
+    TARGET_TO_INDEX,
+    INDEX_TO_TARGET,
+    SWAP_TARGET,
+    SWAP_TARGET_ID,
+)
+from torch.utils.data import DataLoader
 
 
 class SubSetNegativeSampler(NegativeSampler, ABC):
@@ -462,9 +466,11 @@ class NearestNeighbourNegativeSampler_Optimized(SubSetNegativeSampler):
         subset["positive_triples"] = mapped_triples
         subset["kdtree"] = KDTree(
             self.sampling_model.entity_representations[0]().cpu().detach().numpy(),
-            leafsize=self.num_entities
+            leafsize=self.num_entities,
         )
-        subset["entity_representations"] = self.sampling_model.entity_representations[0]().cpu().detach().numpy()
+        subset["entity_representations"] = (
+            self.sampling_model.entity_representations[0]().cpu().detach().numpy()
+        )
 
         return subset
 
@@ -477,14 +483,14 @@ class NearestNeighbourNegativeSampler_Optimized(SubSetNegativeSampler):
         )
 
         search_entity_id = int(triple[TARGET_TO_INDEX[target]])
-        
+
         k_nearest_entities = self._query_kdtree(search_entity_id)
 
-        chosen_negatives = k_nearest_entities[np.isin(k_nearest_entities, negative_pool)][:self.num_negs_per_pos]
-    
+        chosen_negatives = k_nearest_entities[
+            np.isin(k_nearest_entities, negative_pool)
+        ][: self.num_negs_per_pos]
+
         triple[TARGET_TO_INDEX[target]] = self._choose_from_pool(chosen_negatives)
-
-
 
     @lru_cache(maxsize=1024, typed=False)
     def _query_kdtree(self, entity_id):
@@ -496,11 +502,11 @@ class NearestNeighbourNegativeSampler_Optimized(SubSetNegativeSampler):
         Returns:
             _type_: _description_
         """
-        search_entity =  self.subset["entity_representations"][entity_id]
-        _, indices = self.subset["kdtree"].query(search_entity, k=self.num_negs_per_pos * 10)
+        search_entity = self.subset["entity_representations"][entity_id]
+        _, indices = self.subset["kdtree"].query(
+            search_entity, k=self.num_negs_per_pos * 10
+        )
         return indices
-
-
 
     @lru_cache(maxsize=1024, typed=False)
     def _get_subset(self, entity, rel, target):
@@ -526,7 +532,6 @@ class NearestNeighbourNegativeSampler_Optimized(SubSetNegativeSampler):
         return negative_pool.numpy()
 
 
-
 class NearMissNegativeSampler(SubSetNegativeSampler):
 
     def __init__(
@@ -541,14 +546,17 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
         filterer_kwargs=None,
         local_file=None,
         sampling_model: ERModel = None,
-        prediction_function = None,
-        batch_size : int = 1024,
+        prediction_function: Callable[
+            [ERModel, MappedTriples, torch.tensor], torch.tensor
+        ] = None,
+        batch_size: int = 1024,
         **kwargs,
     ):
 
         object.__setattr__(self, "local_file", Path(local_file))
         object.__setattr__(self, "sampling_model", sampling_model)
-        object.__setattr__(self, "preciction_function", prediction_function)
+        object.__setattr__(self, "prediction_function", prediction_function)
+        object.__setattr__(self, "batch_size", batch_size)
 
         super().__init__(
             mapped_triples=mapped_triples,
@@ -567,17 +575,10 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
         subset["positive_triples"] = mapped_triples
         subset["kdtree"] = KDTree(
             self.sampling_model.entity_representations[0]().cpu().detach().numpy(),
-            leafsize=self.num_entities
+            leafsize=self.num_entities,
         )
-        subset["entity_representations"] = self.sampling_model.entity_representations[0]().cpu().detach().numpy()
 
         return subset
-
-    def _corrupt_triple(self, triple, target):
-        pass
-
-
-
 
     @lru_cache(maxsize=1024, typed=False)
     def _get_subset(self, entity, rel, target):
@@ -601,7 +602,6 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
         negative_pool = negative_pool[mask]
 
         return negative_pool.numpy()
-    
 
     def corrupt_batch(self, positive_batch: MappedTriples) -> MappedTriples:
         """Subset batch corruptor. Uniform corruption between head and tail.
@@ -614,10 +614,63 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
             MappedTriples: Batch of negative triples of size (positive_size * num_neg_per_pos, 3)
         """
 
+        log = SimpleLogger()
+        
+
         batch_shape = positive_batch.shape[:-1]
+
+        log.start("[NS] Prediction on HEAD using Pretrained Model")
+
+        head_prediction = (
+            self.prediction_function(
+                self.sampling_model,
+                positive_batch,
+                torch.full((positive_batch.size(0),), fill_value=0),
+            )
+            .cpu()
+            .detach()
+            .numpy()
+        )
+
+        log.end()
+
+        log.start("[NS] Prediction on TAIL using Pretrained Model")
+
+        tail_prediction = (
+            self.prediction_function(
+                self.sampling_model,
+                positive_batch,
+                torch.full((positive_batch.size(0),), fill_value=2),
+            )
+            .cpu()
+            .detach()
+            .numpy()
+        )
+
+        log.end()
+
+        log.start("[NS] Querying KDTREE for HEAD predictions")
+
+        _, head_query_negative_pool = self.subset["kdtree"].query(
+            head_prediction, k=self.num_negs_per_pos * 5
+        )
+
+        log.end()
+
+        log.start("[NS] Querying KDTREE for TAIL predictions")
+
+        _, tail_query_negative_pool = self.subset["kdtree"].query(
+            tail_prediction, k=self.num_negs_per_pos * 5
+        )
+
+        log.end()
 
         # Clone Negative for corruption (cloned the number of negative per positive )
         negative_batch = positive_batch.view(-1, 3).repeat_interleave(
+            self.num_negs_per_pos, dim=0
+        )
+
+        ids = torch.arange(0, positive_batch.size(0)).repeat_interleave(
             self.num_negs_per_pos, dim=0
         )
 
@@ -629,6 +682,27 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
         total_num_negatives = negative_batch.shape[0]
 
         for i in tqdm.tqdm(range(total_num_negatives)):
-            self._corrupt_triple(negative_batch[i], INDEX_TO_TARGET[int(target[i])])
+            if target[i] == 0: # HEAD
+                self._corrupt_triple(negative_batch[i], INDEX_TO_TARGET[int(target[i])], head_query_negative_pool[ids[i]])
+            elif target[i] == 2: # TAIL
+                self._corrupt_triple(negative_batch[i], INDEX_TO_TARGET[int(target[i])], tail_query_negative_pool[ids[i]])
 
         return negative_batch.view(*batch_shape, self.num_negs_per_pos, 3)
+
+
+    def _corrupt_triple(self, triple, target, query_pool):
+
+        negative_pool = self._get_subset(
+            entity=int(triple[TARGET_TO_INDEX[SWAP_TARGET[target]]]),
+            rel=int(triple[REL]),
+            target=target,
+        )
+
+        chosen_negatives = query_pool[
+            np.isin(query_pool, negative_pool)
+        ][: self.num_negs_per_pos]
+
+        if len(chosen_negatives) > 0:
+            triple[TARGET_TO_INDEX[target]] = self._choose_from_pool(torch.tensor(chosen_negatives))
+        else:
+            self._dummy_corrupt_triple(triple)
