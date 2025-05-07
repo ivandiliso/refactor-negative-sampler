@@ -21,6 +21,8 @@ from extended_sampling import (
     NearestNeighbourNegativeSampler,
     NearMissNegativeSampler
 )
+
+from pykeen.sampling import BernoulliNegativeSampler
 from pykeen.models import TransE
 from pykeen.pipeline import pipeline
 from pykeen.sampling.filtering import PythonSetFilterer
@@ -60,7 +62,11 @@ config["data_path"] = config["home_path"] / "data" / config["dataset_name"]
 
 # Dataset Loading
 ################################################################################
-dataset = OnMemoryDataset(config["data_path"])
+dataset = OnMemoryDataset(
+    data_path=config["data_path"],
+    load_domain_range=True,
+    load_entity_classes=True
+    )
 
 pretty_print("t", "Dataset Information")
 print(f"Statistics: {dataset.num_entities} entities, {dataset.num_relations} relations")
@@ -77,6 +83,7 @@ print(
         tablefmt="github",
     )
 )
+
 
 # Loading Pretrained Model for Dynamic Sampling
 ################################################################################
@@ -99,6 +106,9 @@ def sampling_model_prediction(model, hrt_batch, targets):
     out[targets == 2] = model.entity_representations[0](hrt_batch[targets == 2, 0]) + model.relation_representations[0](hrt_batch[targets == 2, 1])
 
     return out
+
+
+
 
 
 
@@ -136,7 +146,7 @@ print(sampling_model_prediction(sampling_model, mapped_triples, torch.tensor([0,
 
 
 mapped_triples = dataset.training.mapped_triples
-mapped_triples = mapped_triples.to(torch.device("mps"))
+#mapped_triples = mapped_triples.to(torch.device("mps"))
 
 #print(mapped_triples[mapped_triples[:, 2] == 68057])
 
@@ -146,51 +156,32 @@ local_file = Path().cwd() / "nn_save.bin"
 print(local_file)
 
 
-sampler = NearMissNegativeSampler(
+sampler = NearestNeighbourNegativeSampler(
     mapped_triples=mapped_triples,
+    local_file=local_file,
     filtered=True,
     filterer=NullPythonSetFilterer(mapped_triples=mapped_triples),
-    local_file=local_file,
     sampling_model=sampling_model,
     num_negs_per_pos=100,
     prediction_function=sampling_model_prediction,
     batch_size=1024,
-    device=torch.device("mps")
+    device=torch.device("mps"),
+    num_query_results=100
 )
 
-# print(sampler.subset)
-
-# print(dataset.relation_to_id)
-
-# negatives = sampler.sample(dataset.training.mapped_triples[torch.randperm(len(dataset.training.mapped_triples))][:10])
-
-# for k, v in sampler.subset.items():
-#     print("----------------------------------------------")
-
-#     print(f"For entity {k}")
-#     print(mapped_triples[mapped_triples[:, 0] == k])
-#     print("When it appears as HEAD i can take the following to corrupt its TAIL")
-#     for rel, values in v["tail"].items():
-#         print(f"{rel} {values}")
-
-#     print("")
-#     print(mapped_triples[mapped_triples[:, 2] == k])
-#     print("When it appears as TAIL i can take the following to corrupt its HEAD")
-#     for rel, values in v["head"].items():
-#         print(f"{rel} {values}")
-
-# print(negatives)
-
-# print("Generating Negatives")
-
-logger = SimpleLogger()
 
 
-logger.start("SAMPLING BATCH")
 
-negatives = sampler.sample(mapped_triples[:4096])
+log = SimpleLogger()
 
-logger.end()
+log.start()
+negatives = sampler.sample(mapped_triples[:10000])
+log.end()
+
+
+a = input()
+
+
 
 
 

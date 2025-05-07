@@ -59,10 +59,10 @@ class SimpleLogger():
     
     def start(self, str=""):
         self.str = str
-        print(f"[{color.RED}START{color.END}] {str}")
+        print(f"[{color.RED}START{color.END}] {str} ...", end="\r")
         self.time = timer()
 
     def end(self):
         self.time = timer() - self.time
-        print(f"[{color.GREEN}DONE{color.END} ] {self.str} in {color.CYAN}{self.time:09.4f}{color.END}s")
-    
+        print(f"[{color.GREEN}DONE{color.END} ] {self.str} in {color.CYAN}{self.time:09.4f}{color.END}s", end="\n")
+

@@ -57,7 +57,9 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             filterer_kwargs=filterer_kwargs,
         )
 
+        self.mapped_triples = mapped_triples
         self.subset = self._generate_subset(mapped_triples, **kwargs)
+        
 
     @abstractmethod
     def _corrupt_triple(self, triple: torch.LongTensor, target: Target):
@@ -128,6 +130,31 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         """
         return pool[torch.randperm(len(pool))[:1]]
 
+    @lru_cache(maxsize=1024, typed=False)
+    def _triple_full_negative_pool(self, entity, rel, target):
+        """Returns all the real negatives given an entity, a relation, and the taget for corruption.
+        if target == "head" returns the full availabile negative entities for (*, rel, entity)
+        if target == "tail" returns the full availabile negative entities for (entity, rel, *)
+        """
+
+        entity_target_id = TARGET_TO_INDEX[SWAP_TARGET[target]]
+        target_id = TARGET_TO_INDEX[target]
+
+        positive_pool = self.mapped_triples[
+            self.mapped_triples[:, entity_target_id] == entity
+        ]
+
+        positive_pool = positive_pool[positive_pool[:, REL] == rel][:, target_id]
+
+        negative_pool = torch.arange(0, self.num_entities, step=1)
+
+        mask = torch.full_like(negative_pool, fill_value=True, dtype=torch.bool)
+        mask[positive_pool] = False
+
+        negative_pool = negative_pool[mask]
+
+        return negative_pool
+
 
 class CorruptNegativeSampler(SubSetNegativeSampler):
     """Negative sampler from "Richard Socher, Danqi Chen, Christopher D Manning,
@@ -186,29 +213,18 @@ class TypedNegativeSampler(SubSetNegativeSampler):
     def __init__(
         self,
         *,
-        mapped_triples,
-        num_entities=None,
-        num_relations=None,
-        num_negs_per_pos=None,
-        filtered=False,
-        filterer=None,
-        filterer_kwargs=None,
         relation_domain_range_dict=None,
         entity_classes_dict=None,
+        **kwargs
     ):
+        
+        object.__setattr__(self, "entity_classes", entity_classes_dict)
+        object.__setattr__(self, "relation_domain_range", relation_domain_range_dict)
+
         super().__init__(
-            mapped_triples=mapped_triples,
-            num_entities=num_entities,
-            num_relations=num_relations,
-            num_negs_per_pos=num_negs_per_pos,
-            filtered=filtered,
-            filterer=filterer,
-            filterer_kwargs=filterer_kwargs,
-            relation_domain_range_dict=relation_domain_range_dict,
-            entity_classes_dict=entity_classes_dict,
+            **kwargs
         )
 
-        self.relation_domain_range = relation_domain_range_dict
         self.mapping = {"head": "domain", "tail": "range"}
 
     def _corrupt_triple(self, triple, target):
@@ -228,8 +244,8 @@ class TypedNegativeSampler(SubSetNegativeSampler):
 
     def _generate_subset(self, mapped_triples, **kwargs):
 
-        entity_classes = kwargs.get("entity_classes_dict")
-        relation_domain_range = kwargs.get("relation_domain_range_dict")
+        entity_classes = self.entity_classes
+        relation_domain_range = self.relation_domain_range
 
         classes_dict = dict()
 
@@ -318,13 +334,8 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
         pivot_entity = int(triple[TARGET_TO_INDEX[SWAP_TARGET[target]]])
         rel = int(triple[REL])
 
-        print("____________________")
-        print(f" Corruping {triple} on {target} so taking {pivot_entity} as pivot")
-
         # Get the subset of element with
         negative_pool = self._get_subset(pivot_entity, rel, target)
-
-        print(negative_pool)
 
         if len(negative_pool) > 0:
             triple[TARGET_TO_INDEX[target]] = self._choose_from_pool(negative_pool)
@@ -345,30 +356,14 @@ class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
 
     def __init__(
         self,
-        *,
-        mapped_triples,
-        num_entities=None,
-        num_relations=None,
-        num_negs_per_pos=None,
-        filtered=False,
-        filterer=None,
-        filterer_kwargs=None,
-        local_file=None,
+        *args,
         sampling_model: ERModel = None,
         **kwargs,
     ):
-
-        object.__setattr__(self, "local_file", Path(local_file))
         object.__setattr__(self, "sampling_model", sampling_model)
 
         super().__init__(
-            mapped_triples=mapped_triples,
-            num_entities=num_entities,
-            num_relations=num_relations,
-            num_negs_per_pos=num_negs_per_pos,
-            filtered=filtered,
-            filterer=filterer,
-            filterer_kwargs=filterer_kwargs,
+            *args,
             **kwargs,
         )
 
@@ -445,75 +440,56 @@ class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
 
 
 class NearMissNegativeSampler(SubSetNegativeSampler):
+    """Auxiliary Model based Negative Sampler from "Kotnis, B., & Nastase, V. (2017). Analysis of the impact of
+    negative sampling on link prediction in knowledge graphs. arXiv preprint arXiv:1708.06816." Uses a pretrained model
+    on the same dataset to produce harder negatives. Given the predicted entity embedding for each triple, a Nearest
+    Neighbour algorithm is used to produce negatives that could be predicted as positive but in reality are negatives.
+    """
 
     def __init__(
         self,
         *,
-        mapped_triples,
-        num_entities=None,
-        num_relations=None,
-        num_negs_per_pos=None,
-        filtered=False,
-        filterer=None,
-        filterer_kwargs=None,
-        local_file=None,
         sampling_model: ERModel = None,
         prediction_function: Callable[
             [ERModel, MappedTriples, torch.tensor], torch.tensor
         ] = None,
-        batch_size: int = 1024,
+        num_query_results: int = None,
         **kwargs,
     ):
+        """Inizialite the NearMissNegativeSampler
 
-        object.__setattr__(self, "local_file", Path(local_file))
+        Args:
+            sampling_model (ERModel, optional): Auxiliary model used to predict the target embedding. Defaults to None.
+            prediction_function (Callable[ [ERModel, MappedTriples, torch.tensor], torch.tensor ], optional): Function that produces the predicted entity in tensor format. Defaults to None.
+            num_query_results (int, optional): The K to be used in K Nearest Neighbours search. Defaults to None.
+        """
+
         object.__setattr__(self, "sampling_model", sampling_model)
         object.__setattr__(self, "prediction_function", prediction_function)
-        object.__setattr__(self, "batch_size", batch_size)
+        object.__setattr__(self, "num_query_results", num_query_results)
 
         super().__init__(
-            mapped_triples=mapped_triples,
-            num_entities=num_entities,
-            num_relations=num_relations,
-            num_negs_per_pos=num_negs_per_pos,
-            filtered=filtered,
-            filterer=filterer,
-            filterer_kwargs=filterer_kwargs,
             **kwargs,
         )
 
-    def _generate_subset(self, mapped_triples, **kwargs):
+    def _generate_subset(self, mapped_triples: MappedTriples, **kwargs) -> Dict:
+        """Generate the auxiliary subset to aid in triple corruption. Specifically
+        it creates the BallTree structure with the filtering triples (in Numpy format)
+
+        Args:
+            mapped_triples (MappedTriples): Triples used for filtering
+
+        Returns:
+            Dict: Dictionary with auxiliary data
+        """
 
         subset = dict()
-        subset["positive_triples"] = mapped_triples
         subset["kdtree"] = KDTree(
             self.sampling_model.entity_representations[0]().cpu().detach().numpy(),
             leafsize=self.num_entities,
         )
 
         return subset
-
-    @lru_cache(maxsize=1024, typed=False)
-    def _get_subset(self, entity, rel, target):
-        """Returns all the real negative entity given a entity and the constructed kdtree, a relation and the target
-        for the corruption
-
-        """
-        pivot_id = TARGET_TO_INDEX[SWAP_TARGET[target]]
-        target_id = TARGET_TO_INDEX[target]
-
-        positive_pool = self.subset["positive_triples"][
-            self.subset["positive_triples"][:, pivot_id] == entity
-        ]
-        positive_pool = positive_pool[positive_pool[:, REL] == rel][:, target_id]
-
-        negative_pool = torch.arange(0, self.num_entities, step=1)
-
-        mask = torch.full_like(negative_pool, fill_value=True, dtype=torch.bool)
-        mask[positive_pool] = False
-
-        negative_pool = negative_pool[mask]
-
-        return negative_pool.numpy()
 
     def corrupt_batch(self, positive_batch: MappedTriples) -> MappedTriples:
         """Subset batch corruptor. Uniform corruption between head and tail.
@@ -527,12 +503,15 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
         """
 
         log = SimpleLogger()
-        
-
         batch_shape = positive_batch.shape[:-1]
 
-        log.start("[NS] Prediction on HEAD using Pretrained Model")
+        # Entity embeddings from pretrained model
+        # Head prediction and tail predicions are tensor data
+        ################################################################################
 
+        log.start(
+            f"[NS {self._get_name()}] Calculating HEAD prediction with {self.sampling_model._get_name()} pretrained model"
+        )
         head_prediction = (
             self.prediction_function(
                 self.sampling_model,
@@ -543,11 +522,11 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
             .detach()
             .numpy()
         )
-
         log.end()
 
-        log.start("[NS] Prediction on TAIL using Pretrained Model")
-
+        log.start(
+            f"[NS {self._get_name()}] Calculating TAIL prediction with {self.sampling_model._get_name()} pretrained model"
+        )
         tail_prediction = (
             self.prediction_function(
                 self.sampling_model,
@@ -558,31 +537,30 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
             .detach()
             .numpy()
         )
-
         log.end()
 
-        log.start("[NS] Querying KDTREE for HEAD predictions")
+        # Head and Tail K-Nearest Neighbours from BallTree Query
+        # The head_query_negative_pool and tail_query_negative_pool
+        # contain the IDs of the entities
+        ################################################################################
 
+        log.start(f"[NS {self._get_name()}] Querying KDTREE for HEAD predictions")
         _, head_query_negative_pool = self.subset["kdtree"].query(
-            head_prediction, k=self.num_negs_per_pos * 5
+            head_prediction, k=self.num_query_results
         )
-
         log.end()
 
-        log.start("[NS] Querying KDTREE for TAIL predictions")
-
+        log.start(f"[NS {self._get_name()}] Querying KDTREE for TAIL predictions")
         _, tail_query_negative_pool = self.subset["kdtree"].query(
-            tail_prediction, k=self.num_negs_per_pos * 5
+            tail_prediction, k=self.num_query_results
         )
-
         log.end()
+
+        # Triples Corruption
+        ################################################################################
 
         # Clone Negative for corruption (cloned the number of negative per positive )
         negative_batch = positive_batch.view(-1, 3).repeat_interleave(
-            self.num_negs_per_pos, dim=0
-        )
-
-        ids = torch.arange(0, positive_batch.size(0)).repeat_interleave(
             self.num_negs_per_pos, dim=0
         )
 
@@ -593,28 +571,49 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
 
         total_num_negatives = negative_batch.shape[0]
 
+        # Here we do i // self.num_negs_per_pos so we can get the ID of the original
+        # non interleave triple (since triples are repeated for the nuber of negatives required)
+
         for i in tqdm.tqdm(range(total_num_negatives)):
-            if target[i] == 0: # HEAD
-                self._corrupt_triple(negative_batch[i], INDEX_TO_TARGET[int(target[i])], head_query_negative_pool[ids[i]])
-            elif target[i] == 2: # TAIL
-                self._corrupt_triple(negative_batch[i], INDEX_TO_TARGET[int(target[i])], tail_query_negative_pool[ids[i]])
+            if target[i] == 0:  # HEAD
+                self._corrupt_triple(
+                    negative_batch[i],
+                    INDEX_TO_TARGET[int(target[i])],
+                    head_query_negative_pool[i // self.num_negs_per_pos],
+                )
+            elif target[i] == 2:  # TAIL
+                self._corrupt_triple(
+                    negative_batch[i],
+                    INDEX_TO_TARGET[int(target[i])],
+                    tail_query_negative_pool[i // self.num_negs_per_pos],
+                )
 
         return negative_batch.view(*batch_shape, self.num_negs_per_pos, 3)
 
-
     def _corrupt_triple(self, triple, target, query_pool):
 
-        negative_pool = self._get_subset(
+        # We get the REAL negatives for the triple
+        
+        negative_pool = self._triple_full_negative_pool(
             entity=int(triple[TARGET_TO_INDEX[SWAP_TARGET[target]]]),
             rel=int(triple[REL]),
             target=target,
         )
-
+        
+        # We then take the elements from the BallTree query results that are real negatives
+        
         chosen_negatives = query_pool[
-            np.isin(query_pool, negative_pool)
-        ][: self.num_negs_per_pos]
+            torch.isin(torch.tensor(query_pool), negative_pool)
+        ]
+    
+        chosen_negatives = query_pool
 
         if len(chosen_negatives) > 0:
-            triple[TARGET_TO_INDEX[target]] = self._choose_from_pool(torch.tensor(chosen_negatives))
+            triple[TARGET_TO_INDEX[target]] = self._choose_from_pool(chosen_negatives)
         else:
             self._dummy_corrupt_triple(triple)
+
+
+
+
+

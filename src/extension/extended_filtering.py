@@ -19,7 +19,7 @@ class NullPythonSetFilterer(PythonSetFilterer):
         return torch.as_tensor(
             data=
             [
-                ((tuple(triple) == (-1,-1,-1)) 
+                ((-1 in tuple(triple)) 
                 or (tuple(triple) in self.triples)) 
                 for triple in batch.view(-1, 3).tolist()
             ],
