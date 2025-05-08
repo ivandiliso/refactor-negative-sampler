@@ -421,7 +421,7 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
         """Inizialite the NearMissNegativeSampler
 
         Args:
-            sampling_model (ERModel, optional): Auxiliary model used to predict the target embedding. Defaults to None.
+            sampling_model (ERModel, optional): Auxiliary pretrained model used to predict the target embedding. Defaults to None.
             prediction_function (Callable[ [ERModel, MappedTriples, torch.tensor], torch.tensor ], optional): Function that produces the predicted entity in tensor format. Defaults to None.
             num_query_results (int, optional): The K to be used in K Nearest Neighbours search. Defaults to None.
         """

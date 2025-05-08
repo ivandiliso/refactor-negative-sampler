@@ -175,7 +175,7 @@ sampler = NearestNeighbourNegativeSampler(
 log = SimpleLogger()
 
 log.start()
-negatives = sampler.sample(mapped_triples[:10000])
+negatives = sampler.sample(mapped_triples[:2048])
 log.end()
 
 
