@@ -8,7 +8,7 @@ from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple, Union, c
 import torch
 import tqdm as tqdm
 from collections.abc import Callable
-from test_utils import SimpleLogger
+from extension.test_utils import SimpleLogger
 from pykeen.sampling import NegativeSampler
 from pykeen.triples import CoreTriplesFactory
 from pykeen.typing import BoolTensor, EntityMapping, LongTensor, MappedTriples, Target
@@ -17,7 +17,7 @@ from functools import lru_cache
 from pykeen.models import TransE, RESCAL, ERModel
 from scipy.spatial import KDTree
 import numpy as np
-from extended_constants import (
+from extension.extended_constants import (
     HEAD,
     TAIL,
     REL,
@@ -51,7 +51,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             mapped_triples=mapped_triples,
             num_entities=num_entities,
             num_relations=num_relations,
-            num_negs_per_pos=num_negs_per_pos * 2,
+            num_negs_per_pos=num_negs_per_pos,
             filtered=filtered,
             filterer=filterer,
             filterer_kwargs=filterer_kwargs,

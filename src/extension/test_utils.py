@@ -4,10 +4,46 @@ import random
 import numpy as np
 import pykeen.utils
 import torch
-import torch_geometric
 import pykeen
 from datetime import datetime
 from timeit import default_timer as timer
+
+
+def automatic_backend_chooser() -> torch.device:
+    """Automatically select the device for the current hardware
+
+    Args:
+        logger (util.logger, optional): Logging utility. Defaults to None.
+
+    Returns:
+        torch.device: Selected torch device
+    """
+    device = torch.device("cpu")
+
+    if not torch.cuda.is_available():
+        print("[Backend Chooser] CUDA NOT Available")
+    else:
+        print("[Backend Chooser] CUDA Available")
+        device = torch.device("cuda")
+
+    if not torch.backends.mps.is_available():
+        if not torch.backends.mps.is_built():
+            print(
+                "[Backend Chooser] MPS not available because the current PyTorch install was not built with MPS enabled."
+            )
+        else:
+
+            print(
+                "[Backend Chooser] MPS not available because the current MacOS version is not 12.3+ and/or you do not have an MPS-enabled device on this machine."
+            )
+    else:
+
+        print("[Backend Chooser] MPS Available")
+        device = torch.device("mps")
+
+    print(f"[Backend Chooser] Using {str(device).upper()} Acceleration")
+
+    return device
 
 
 def set_random_seed_all(seed: int) -> None:
@@ -22,7 +58,6 @@ def set_random_seed_all(seed: int) -> None:
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    torch_geometric.seed_everything(seed)
 
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
@@ -52,11 +87,11 @@ def pretty_print(type, str):
             print(f"[{color.RED}{str}{color.END}]")
 
 
-class SimpleLogger():
+class SimpleLogger:
     def __init__(self):
         self.time = 0
         self.str = ""
-    
+
     def start(self, str=""):
         self.str = str
         print(f"[{color.RED}START{color.END}] {str} ...", end="\r")
@@ -64,5 +99,7 @@ class SimpleLogger():
 
     def end(self):
         self.time = timer() - self.time
-        print(f"[{color.GREEN}DONE{color.END} ] {self.str} in {color.CYAN}{self.time:09.4f}{color.END}s", end="\n")
-
+        print(
+            f"[{color.GREEN}DONE{color.END} ] {self.str} in {color.CYAN}{self.time:09.4f}{color.END}s",
+            end="\n",
+        )

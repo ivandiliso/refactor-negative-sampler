@@ -1,0 +1,1 @@
+print(f"{float(1e-2):f}")
