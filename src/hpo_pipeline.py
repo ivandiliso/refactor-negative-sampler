@@ -230,13 +230,9 @@ hpo_pipeline_result = hpo_pipeline(
 
     timeout = params.hpo_timeout * 60 * 60,
 
-    #training=dataset.training,
-    #testing=dataset.testing,
-    #validation=dataset.validation,
-
-    dataset="nations",
-
-    n_trials=1,
+    training=dataset.training,
+    testing=dataset.testing,
+    validation=dataset.validation,
 
     model=params.model,
     model_kwargs=dict(
@@ -250,7 +246,7 @@ hpo_pipeline_result = hpo_pipeline(
 
     training_loop="sLCWA",
     training_kwargs=dict(
-        num_epochs=1,
+        num_epochs=params.epochs,
         batch_size=params.batch_size
     ),
 
@@ -303,6 +299,9 @@ out_dict = {
     "random_seed": params.random_seed,
     "num_neg_per_pos": params.num_neg_per_pos,
     "dataset": params.dataset,
+    "training_loop" : "sLCWA",
+    "pykeen_version" : pykeen.version.get_version(),
+    "python_verison" : sys.version
 }
 
 with open(params.experiment_path / "best_trial_params.json", "w") as f:
