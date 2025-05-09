@@ -43,7 +43,7 @@ from pykeen.optimizers import Adam
 import json
 
 params = SimpleNamespace()
-
+params.dataset = "YAGO4-20"
 
 # Arguments Parsing
 ################################################################################
@@ -230,10 +230,13 @@ hpo_pipeline_result = hpo_pipeline(
 
     timeout = params.hpo_timeout * 60 * 60,
 
-    training=dataset.training,
-    testing=dataset.testing,
-    validation=dataset.validation,
+    #training=dataset.training,
+    #testing=dataset.testing,
+    #validation=dataset.validation,
 
+    dataset="nations",
+
+    n_trials=1,
 
     model=params.model,
     model_kwargs=dict(
@@ -247,7 +250,7 @@ hpo_pipeline_result = hpo_pipeline(
 
     training_loop="sLCWA",
     training_kwargs=dict(
-        num_epochs=params.epochs,
+        num_epochs=1,
         batch_size=params.batch_size
     ),
 
@@ -276,5 +279,31 @@ hpo_pipeline_result = hpo_pipeline(
     save_model_directory = params.experiment_path / "models_checkpoints"
 )
 
-hpo_pipeline_result.save_to_directory(params.experiment_path)
 
+# Saving HPO Pipeline Results
+################################################################################
+
+out_dict = {
+    "hpo_optimized_params" : hpo_pipeline_result.study.best_params,
+    "best_trial_number" : hpo_pipeline_result.study.best_trial.number,
+    "model" : str(params.model),
+    "negative_sampler" : params.negative_sampler,
+    "epochs": params.epochs,
+    "embedding_dim": params.embedding_dim,
+    "relation_dim": params.relation_dim,
+    "scoring_fct_norm": params.scoring_fct_norm,
+    "batch_size": params.batch_size,
+    "regularizer_p": params.regularizer_p,
+    "hpo_timeout": params.hpo_timeout,
+    "hpo_strategy": params.hpo_strategy,
+    "loss": params.loss,
+    "hpo_margin": {k:v for k,v in params.hpo_margin.items()} ,
+    "hpo_learning_rate":{k:v for k,v in params.hpo_learning_rate.items() if k != "type"},
+    "hpo_regularizer_weight":{k:v for k,v in params.hpo_regularizer_weight.items() if k != "type"},
+    "random_seed": params.random_seed,
+    "num_neg_per_pos": params.num_neg_per_pos,
+    "dataset": params.dataset,
+}
+
+with open(params.experiment_path / "best_trial_params.json", "w") as f:
+    json.dump(out_dict, f, indent=4)
