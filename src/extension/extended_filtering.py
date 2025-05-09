@@ -15,8 +15,6 @@ class NullPythonSetFilterer(PythonSetFilterer):
     def __init__(self, mapped_triples):
         super().__init__(mapped_triples)
 
-        print(mapped_triples, len(mapped_triples))
-
     def contains(self, batch):
         return torch.as_tensor(
             data=

@@ -214,12 +214,10 @@ print(f"[Negative Sampler] {params.negative_sampler}")
 
 match params.model_name:
     case "transe":
-        params.model = TransE(
-            embedding_dim=params.embedding_dim,
-            scoring_fct_norm=params.scoring_fct_norm,
-            triples_factory = dataset.training,
-            random_seed=params.random_seed
-        )
+        params.model = TransE
+
+
+        
 print(f"[Embedding Model] {params.model}")
 
 
@@ -230,16 +228,12 @@ print(f"[Embedding Model] {params.model}")
 
 hpo_pipeline_result = hpo_pipeline(
 
-
-
-    n_trials=1,
     timeout = params.hpo_timeout * 60 * 60,
 
-    #training=dataset.training,
-    #testing=dataset.testing,
-    #validation=dataset.validation,
+    training=dataset.training,
+    testing=dataset.testing,
+    validation=dataset.validation,
 
-    dataset="nations",
 
     model=params.model,
     model_kwargs=dict(
@@ -253,8 +247,7 @@ hpo_pipeline_result = hpo_pipeline(
 
     training_loop="sLCWA",
     training_kwargs=dict(
-        #num_epochs=params.epochs,
-        num_epochs=1,
+        num_epochs=params.epochs,
         batch_size=params.batch_size
     ),
 

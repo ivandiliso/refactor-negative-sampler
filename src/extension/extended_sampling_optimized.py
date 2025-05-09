@@ -57,7 +57,6 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             filterer_kwargs=filterer_kwargs,
         )
 
-        self.name = "SubSetNegativeSampler"
         self.mapped_triples = mapped_triples
         self.subset = self._generate_subset(mapped_triples, **kwargs)
         
