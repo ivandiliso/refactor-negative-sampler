@@ -57,8 +57,10 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             filterer_kwargs=filterer_kwargs,
         )
 
+        self.name = "SubSetNegativeSampler"
         self.mapped_triples = mapped_triples
         self.subset = self._generate_subset(mapped_triples, **kwargs)
+        
         
 
     @abstractmethod
@@ -95,7 +97,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             self.num_negs_per_pos, dim=0
         )
 
-        for i in tqdm.tqdm(range(0, positive_batch.size(0))):
+        for i in range(0, positive_batch.size(0)):
             
             batch_start = (i*self.num_negs_per_pos)
             batch_end = batch_start + self.num_negs_per_pos
@@ -170,7 +172,6 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
         )
 
     def _generate_subset(self, mapped_triples):
-        print(self.num_negs_per_pos)
         relations = torch.unique(mapped_triples[:, REL]).tolist()
         subset = dict()
         for r in relations:
@@ -202,8 +203,8 @@ class TypedNegativeSampler(SubSetNegativeSampler):
     def __init__(
         self,
         *,
-        relation_domain_range_dict=None,
-        entity_classes_dict=None,
+        relation_domain_range_dict,
+        entity_classes_dict,
         **kwargs
     ):
         
@@ -213,6 +214,7 @@ class TypedNegativeSampler(SubSetNegativeSampler):
         super().__init__(
             **kwargs
         )
+
 
         self.mapping = {"head": "domain", "tail": "range"}
 
@@ -232,17 +234,14 @@ class TypedNegativeSampler(SubSetNegativeSampler):
 
     def _generate_subset(self, mapped_triples, **kwargs):
 
-        entity_classes = self.entity_classes
-        relation_domain_range = self.relation_domain_range
-
         classes_dict = dict()
 
-        for _, domain_range_dict in relation_domain_range.items():
+        for _, domain_range_dict in self.relation_domain_range.items():
             for classes_name in domain_range_dict.values():
                 if classes_name != "None":
                     classes_dict[classes_name] = []
 
-        for entity_id, classes_names in entity_classes.items():
+        for entity_id, classes_names in self.entity_classes.items():
             for class_name in classes_names:
                 if class_name in classes_dict:
                     classes_dict[class_name].append(entity_id)

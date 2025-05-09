@@ -1,5 +1,6 @@
 data/
 model/
+experiments/
 
 # General
 .DS_Store

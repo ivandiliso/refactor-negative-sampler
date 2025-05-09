@@ -35,11 +35,15 @@ from tabulate import tabulate
 from extension.test_utils import automatic_backend_chooser, set_random_seed_all
 import argparse
 from pykeen.hpo import hpo_pipeline
+from pykeen.sampling import negative_sampler_resolver
+from pykeen.sampling.filtering import filterer_resolver
+
 
 from pykeen.optimizers import Adam
-
+import json
 
 params = SimpleNamespace()
+
 
 # Arguments Parsing
 ################################################################################
@@ -156,63 +160,49 @@ print(
 ################################################################################
 
 
+negative_sampler_resolver.register(element=CorruptNegativeSampler)
+negative_sampler_resolver.register(element=TypedNegativeSampler)
+negative_sampler_resolver.register(element=RelationalNegativeSampler)
+filterer_resolver.register(element=NullPythonSetFilterer)
 
 match params.negative_sampler_name:
     case "random":
-        params.negative_sampler = (
-            BasicNegativeSampler(
-                mapped_triples=dataset.training.mapped_triples,
-                filtered=True,
-                filterer=NullPythonSetFilterer(
-                    mapped_triples=dataset.training.mapped_triples
-                ),
-                num_negs_per_pos=params.num_neg_per_pos,
-            )
+        params.negative_sampler = "basic"
+        params.negative_sampler_kwargs = dict(
+            filtered=True,
+            filterer="nullpythonset",
+            num_negs_per_pos=params.num_neg_per_pos,
         )
     case "bernoulli":
-        params.negative_sampler = (
-            BernoulliNegativeSampler(
-                mapped_triples=dataset.training.mapped_triples,
-                filtered=True,
-                filterer=NullPythonSetFilterer(
-                    mapped_triples=dataset.training.mapped_triples
-                ),
-                num_negs_per_pos=params.num_neg_per_pos,
-            )
+        params.negative_sampler = "bernoulli"
+        params.negative_sampler_kwargs = dict(
+            filtered=True,
+            filterer="nullpythonset",
+            num_negs_per_pos=params.num_neg_per_pos,
         )
     case "corrupt":
-        params.negative_sampler = (
-            CorruptNegativeSampler(
-                mapped_triples=dataset.training.mapped_triples,
-                filtered=True,
-                filterer=NullPythonSetFilterer(
-                    mapped_triples=dataset.training.mapped_triples
-                ),
-                num_negs_per_pos=params.num_neg_per_pos,
-            )
+        params.negative_sampler = "corrupt"
+        params.negative_sampler_kwargs = dict(
+            filtered=True,
+            filterer="nullpythonset",
+            num_negs_per_pos=params.num_neg_per_pos,
         )
     case "typed":
-        params.negative_sampler = (
-            TypedNegativeSampler(
-                mapped_triples=dataset.training.mapped_triples,
-                filtered=True,
-                filterer=NullPythonSetFilterer(
-                    mapped_triples=dataset.training.mapped_triples
-                ),
-                num_negs_per_pos=params.num_neg_per_pos,
-                entity_classes_dict=dataset.entity_id_to_classes,
-                relation_domain_range_dict=dataset.relation_id_to_domain_range,
-            )
+        params.negative_sampler = "typed"
+        params.negative_sampler_kwargs = dict(
+            filtered=True,
+            filterer="nullpythonset",
+            num_negs_per_pos=params.num_neg_per_pos,
+            entity_classes_dict=dataset.entity_id_to_classes,
+            relation_domain_range_dict=dataset.relation_id_to_domain_range,
         )
     case "relational":
-        params.negative_sampler = RelationalNegativeSampler(
-            mapped_triples=dataset.training.mapped_triples,
+        params.negative_sampler = "relational"
+        params.negative_sampler_kwargs = dict(
             filtered=True,
-            filterer=NullPythonSetFilterer(
-                mapped_triples=dataset.training.mapped_triples
-            ),
+            filterer="nullpythonset",
             num_negs_per_pos=params.num_neg_per_pos,
-            local_file=params.data_path / "relational_cached.bin",
+            local_file=params.data_path / "relational_cached.bin"
         )
 
 print(f"[Negative Sampler] {params.negative_sampler}")
@@ -233,31 +223,38 @@ match params.model_name:
 print(f"[Embedding Model] {params.model}")
 
 
+
 # HPO Pipeline
 ################################################################################
 
 
 hpo_pipeline_result = hpo_pipeline(
 
-    dataset=dataset,
+
+
+    n_trials=1,
+    timeout = params.hpo_timeout * 60 * 60,
+
+    #training=dataset.training,
+    #testing=dataset.testing,
+    #validation=dataset.validation,
+
+    dataset="nations",
 
     model=params.model,
     model_kwargs=dict(
         embedding_dim=params.embedding_dim,
+        random_seed = params.random_seed,
         scoring_fct_norm=params.scoring_fct_norm
     ),
 
     negative_sampler=params.negative_sampler,
-    negative_sampler_kwargs=dict(
-        num_negs_per_pos=params.num_neg_per_pos
-    ),
-
-    timeout = params.hpo_timeout * 60 * 60,
-
+    negative_sampler_kwargs=params.negative_sampler_kwargs,
 
     training_loop="sLCWA",
     training_kwargs=dict(
-        num_epochs=params.epochs,
+        #num_epochs=params.epochs,
+        num_epochs=1,
         batch_size=params.batch_size
     ),
 
@@ -265,7 +262,6 @@ hpo_pipeline_result = hpo_pipeline(
     loss_kwargs_ranges=dict(
         margin=params.hpo_margin
     ),
-
 
     regularizer=LpRegularizer,
     regularizer_kwargs=dict(
@@ -279,7 +275,13 @@ hpo_pipeline_result = hpo_pipeline(
     optimizer_kwargs_ranges=dict(
         lr=params.hpo_learning_rate
     ),
-    device=params.device
+    device=params.device,
+
+    evaluation_kwargs=dict(
+        batch_size = 4096
+    ),
+    save_model_directory = params.experiment_path / "models_checkpoints"
 )
 
 hpo_pipeline_result.save_to_directory(params.experiment_path)
+
