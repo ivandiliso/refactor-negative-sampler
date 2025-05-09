@@ -1,6 +1,8 @@
 data/
 model/
-experiments/
+experiments/*/models_checkpoints/
+experiments/*/checkpoint/**
+
 
 # General
 .DS_Store
