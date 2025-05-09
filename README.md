@@ -8,8 +8,9 @@
     📁 YAGO39K   
 📁 doc              -> Documentations and logs
 📁 model
-    📂 embedding    -> Embedding models checkpoints
-    📂 sampling     -> Checkpoints for models used in dynamic sampling
+    📁 embedding    -> Embedding models checkpoints
+    📁 sampling     -> Checkpoints for models used in dynamic sampling
+📁 experiments      -> Experiments results after HPO pipeline
 📁 script           -> Single execution files, settings etc     
 📁 src              -> Source code
     📁 extension    -> Extensions of PyKeen classes for negative sampling
@@ -37,7 +38,7 @@ Progress relative to **YAGO4-20** dataset
 - ![](https://geps.dev/progress/90) Typed
 - ![](https://geps.dev/progress/90) Relational
 - ![](https://geps.dev/progress/90) NearestNeighbour 
-- ![](https://geps.dev/progress/15) NearMiss (Called Adversarial in our own work)
+- ![](https://geps.dev/progress/90) NearMiss (Called Adversarial in our own work)
 
 #### Relational 
 
@@ -55,36 +56,12 @@ Need to take a decision on how to move on on the parameters, the code will be wr
 embedding model class (from PyKeen)
 
 
-**Hyperparameters FIXED for pretraining RECAL Model**
-```js
-embedding_dim = 200 
-negative_sampler = RandomNegativeSampler + PythonSetFilterer
-num_negs_per_pos = 100
-optimizer = Adam
-regularized = LP (2-Norm)
-training_loop = sLCWA
-loss = MarginRankingLoss (with mean reduction)
-evaluation = RankBasedEvaluator
-epochs = 100,
-stopper = EarlyStopper
-stopper_frequency = 5,
-stopper_patience = 2,
-stopper_relative_delata = 0.002
-random_seed = 42
-```
-**Hyperparameters OPTIMIZED with GRID SEARCH (20 Trials) for pretraining RECAL Model**
-```js
-loss_margin = [0.5, 1.0, 2.0]
-learning_rate = [1e-3, 5e-4, 1e-4]
-regularizer_weight = [1e-5, 1e-4, 1e-3]
-```
-
 
 ### Training 
 
-- ![](https://geps.dev/progress/0) Hyperparameter Optimization
-- ![](https://geps.dev/progress/0) Training Loop
-- ![](https://geps.dev/progress/0) Evaluation Loop
+- ![](https://geps.dev/progress/100) Hyperparameter Optimization
+- ![](https://geps.dev/progress/100) Training Loop
+- ![](https://geps.dev/progress/0) Evaluation on Testing Loop
 
 
 
