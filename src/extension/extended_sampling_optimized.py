@@ -150,6 +150,17 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         tail_positive_pool = tail_positive_pool[tail_positive_pool[:, REL] == r][:,TAIL]
 
         return head_positive_pool, tail_positive_pool
+    
+    def average_pool_size(self, check_triples):
+        corrupting_tail = torch.unique(check_triples[:, [HEAD, REL]], dim=0)
+        corrupting_head = torch.unique(check_triples[:, [TAIL, REL]], dim=0)
+
+        return self._compute_poolsize_aggregate(corrupting_tail, corrupting_head)
+    
+
+    @abstractmethod
+    def _compute_poolsize_aggregate(self, head_relation: torch.tensor, tail_relation: torch.tensor) -> int:
+        raise NotImplementedError
 
 
 class CorruptNegativeSampler(SubSetNegativeSampler):
@@ -188,6 +199,17 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
         tail_negative_pool = self.subset[r]["tail"]
         
         return head_negative_pool, tail_negative_pool
+    
+    def _compute_poolsize_aggregate(self, corrupting_tail, corrupting_head):
+        total = 0
+
+        for r in corrupting_tail[:,1]:
+            total += len(self.subset[int(r)]["tail"])
+
+        for r in corrupting_head[:,1]:
+           total += len(self.subset[int(r)]["head"])
+           
+        return int(total / (len(corrupting_head + len(corrupting_head))))
 
 
 
@@ -230,6 +252,20 @@ class TypedNegativeSampler(SubSetNegativeSampler):
         
         return head_negative_pool, tail_negative_pool
 
+
+    def _compute_poolsize_aggregate(self, corrupting_tail, corrupting_head):
+        total = 0
+
+        for r in corrupting_tail[:,1]:
+            tail_target_class = self.relation_domain_range[int(r)][self.mapping["tail"]]
+            total += len(self.subset[tail_target_class]) if tail_target_class != "None" else 0
+
+        for r in corrupting_head[:,1]:
+           head_target_class = self.relation_domain_range[int(r)][self.mapping["head"]]
+           total += len(self.subset[head_target_class]) if head_target_class != "None" else 0
+
+           
+        return int(total / (len(corrupting_head + len(corrupting_head))))
 
     def _generate_subset(self, mapped_triples, **kwargs):
 

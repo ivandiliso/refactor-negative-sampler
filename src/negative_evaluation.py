@@ -8,13 +8,14 @@ import signal
 import sys
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pykeen
 import pykeen.models
 import torch
-from extended_dataset import OnMemoryDataset
-from extended_filtering import NullPythonSetFilterer
-from extended_sampling_optimized import (
+from extension.extended_dataset import OnMemoryDataset
+from extension.extended_filtering import NullPythonSetFilterer
+from extension.extended_sampling_optimized import (
     CorruptNegativeSampler,
     RelationalNegativeSampler,
     TypedNegativeSampler,
@@ -28,7 +29,7 @@ from pykeen.pipeline import pipeline
 from pykeen.sampling.filtering import PythonSetFilterer
 from pykeen.triples import TriplesFactory
 from tabulate import tabulate
-from test_utils import *
+from extension.test_utils import *
 
 # Python and Torch Configuration
 ################################################################################
@@ -115,96 +116,90 @@ print(sampling_model)
 # Negative Samplers Setup
 ################################################################################
 
-mapped_triples = dataset.training.mapped_triples
-LOCAL_FILE = Path().cwd() / "nn_save.bin"
-NUM_NEG_PER_POS = 100
-NUM_QUERY_RESULTS = 200
-filterer = NullPythonSetFilterer(mapped_triples=mapped_triples)
+
+params = SimpleNamespace()
+
+params.negative_sampler_name = "typed"
+params.local_file = Path().cwd() / "nn_save.bin"
+params.num_negs_per_pos = 2
+params.sample = True
+params.sample_size = 2
 
 
-negative_samplers = {
-    "basic" : BasicNegativeSampler(
-        mapped_triples=mapped_triples,
-        filtered=True,
-        filterer=filterer,
-        num_neg_per_pos=NUM_NEG_PER_POS
-    ),
-    "bernoulli" : BernoulliNegativeSampler(
-        mapped_triples=mapped_triples,
-        filtered=True,
-        filterer=filterer,
-        num_neg_per_pos=NUM_NEG_PER_POS
-    ),
-    "corrupt" : CorruptNegativeSampler(
-        mapped_triples=mapped_triples,
-        filtered=True,
-        filterer=filterer,
-        num_neg_per_pos=NUM_NEG_PER_POS
-    ),
-    "typed" : TypedNegativeSampler(
-        mapped_triples=mapped_triples,
-        filtered=True,
-        filterer=filterer,
-        num_neg_per_pos=NUM_NEG_PER_POS,
-        entity_classes_dict=dataset.entity_id_to_classes,
-        relation_domain_range_dict=dataset.relation_id_to_domain_range
-    ),
-    "relational" : RelationalNegativeSampler(
-        mapped_triples=mapped_triples,
-        filtered=True,
-        filterer=filterer,
-        num_neg_per_pos=NUM_NEG_PER_POS,
-        local_file=LOCAL_FILE
-    ),
-    "nearestneighbour" : NearestNeighbourNegativeSampler(
-        mapped_triples=mapped_triples,
-        filtered=True,
-        filterer=filterer,
-        num_neg_per_pos=NUM_NEG_PER_POS,
-        sampling_model=sampling_model,
-        num_query_results=NUM_QUERY_RESULTS
-    ),
-    "nearmiss" : NearMissNegativeSampler(
-        mapped_triples=mapped_triples,
-        filtered=True,
-        filterer=filterer,
-        num_neg_per_pos=NUM_NEG_PER_POS,
-        num_query_results=NUM_QUERY_RESULTS,
-        sampling_model=sampling_model,
-        num_query_results=NUM_QUERY_RESULTS,
-        prediction_function=sampling_model_prediction
-
-    )
-}
-
-
-
-
-
+match params.negative_sampler_name:
+    case "random":
+        params.negative_sampler = (
+            BasicNegativeSampler(
+                mapped_triples=dataset.training.mapped_triples,
+                filtered=True,
+                filterer=NullPythonSetFilterer(
+                    mapped_triples=dataset.training.mapped_triples
+                ),
+                num_negs_per_pos=params.num_negs_per_pos,
+            )
+        )
+    case "bernoulli":
+        params.negative_sampler = (
+            BernoulliNegativeSampler(
+                mapped_triples=dataset.training.mapped_triples,
+                filtered=True,
+                filterer=NullPythonSetFilterer(
+                    mapped_triples=dataset.training.mapped_triples
+                ),
+                num_negs_per_pos=params.num_negs_per_pos,
+            )
+        )
+    case "corrupt":
+        params.negative_sampler = (
+            CorruptNegativeSampler(
+                mapped_triples=dataset.training.mapped_triples,
+                filtered=True,
+                filterer=NullPythonSetFilterer(
+                    mapped_triples=dataset.training.mapped_triples
+                ),
+                num_negs_per_pos=params.num_negs_per_pos,
+            )
+        )
+    case "typed":
+        params.negative_sampler = (
+            TypedNegativeSampler(
+                mapped_triples=dataset.training.mapped_triples,
+                filtered=True,
+                filterer=NullPythonSetFilterer(
+                    mapped_triples=dataset.training.mapped_triples
+                ),
+                num_negs_per_pos=params.num_negs_per_pos,
+                entity_classes_dict=dataset.entity_id_to_classes,
+                relation_domain_range_dict=dataset.relation_id_to_domain_range,
+            )
+        )
+    case "relational":
+        params.negative_sampler = RelationalNegativeSampler(
+            mapped_triples=dataset.training.mapped_triples,
+            filtered=True,
+            filterer=NullPythonSetFilterer(
+                mapped_triples=dataset.training.mapped_triples
+            ),
+            num_negs_per_pos=params.num_negs_per_pos,
+            local_file=params.local_file
+        )
 
 
 
-sampler = NearMissNegativeSampler(
-    mapped_triples=mapped_triples,
-    local_file=local_file,
-    filtered=True,
-    filterer=NullPythonSetFilterer(mapped_triples=mapped_triples),
-    sampling_model=sampling_model,
-    num_negs_per_pos=50,
-    prediction_function=sampling_model_prediction,
-    batch_size=1024,
-    device=torch.device("cpu"),
-    num_query_results=200,
-)
+val = params.negative_sampler.average_pool_size(dataset.training.mapped_triples)
+
+print(val)
 
 
-log = SimpleLogger()
 
-log.start()
-negatives = sampler.sample(mapped_triples[:2048])
-log.end()
+if params.sample:
+    log = SimpleLogger()
+
+    log.start()
+    negatives = params.negative_sampler.sample(dataset.training.mapped_triples[:params.sample_size])
+    log.end()
 
 
-print(negatives)
-print(negatives[1].shape)
-print(torch.sum(negatives[1]))
+    print(negatives)
+    print(negatives[1].shape)
+    print(torch.sum(negatives[1]))
