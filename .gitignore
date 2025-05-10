@@ -2,7 +2,7 @@ data/
 model/
 experiments/*/models_checkpoints/
 experiments/*/models_checkpoints/**
-
+nn_save.bin
 
 # General
 .DS_Store

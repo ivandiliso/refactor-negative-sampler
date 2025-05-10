@@ -119,11 +119,17 @@ print(sampling_model)
 
 params = SimpleNamespace()
 
-params.negative_sampler_name = "typed"
+params.negative_sampler_name = "relational"
 params.local_file = Path().cwd() / "nn_save.bin"
-params.num_negs_per_pos = 2
+params.num_negs_per_pos = 1
 params.sample = True
-params.sample_size = 2
+params.sample_size = 10
+params.permutate_triples = False
+
+if params.permutate_triples:
+    eval_triples = dataset.training.mapped_triples[torch.randperm(len(dataset.training.mapped_triples))[:params.sample_size]]
+else:
+    eval_triples = dataset.training.mapped_triples[:params.sample_size]
 
 
 match params.negative_sampler_name:
@@ -186,9 +192,10 @@ match params.negative_sampler_name:
 
 
 
-val = params.negative_sampler.average_pool_size(dataset.training.mapped_triples)
+#val = params.negative_sampler.average_pool_size(dataset.training.mapped_triples)
 
-print(val)
+#print(val)
+
 
 
 
@@ -196,7 +203,7 @@ if params.sample:
     log = SimpleLogger()
 
     log.start()
-    negatives = params.negative_sampler.sample(dataset.training.mapped_triples[:params.sample_size])
+    negatives = params.negative_sampler.sample(eval_triples)
     log.end()
 
 
