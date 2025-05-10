@@ -247,7 +247,7 @@ hpo_pipeline_result = hpo_pipeline(
     training_loop="sLCWA",
     training_kwargs=dict(
         num_epochs=params.epochs,
-        batch_size=params.batch_size
+        batch_size=1000
     ),
 
     loss=MarginRankingLoss,
@@ -270,7 +270,7 @@ hpo_pipeline_result = hpo_pipeline(
     device=params.device,
 
     evaluation_kwargs=dict(
-        batch_size = 4096
+        batch_size = 500
     ),
     save_model_directory = params.experiment_path / "models_checkpoints"
 )
