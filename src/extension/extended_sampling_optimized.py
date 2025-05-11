@@ -94,7 +94,6 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             self.num_negs_per_pos, dim=0
         )
 
-        print(negative_batch)
 
         for i in range(0, positive_batch.size(0)):
 
@@ -112,14 +111,14 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
 
                 # Head Corruption
 
-                rows = torch.arange(batch_start, batch_end)
 
-                negative_batch[rows[targets], HEAD] = self._choose_from_pools(
+
+                negative_batch[batch_start:batch_end][targets, HEAD] = self._choose_from_pools(
                     positive_batch[i], "head", num_head_negatives
                 )
 
                 # Tail Corruption
-                negative_batch[rows[~targets], TAIL] = self._choose_from_pools(
+                negative_batch[batch_start:batch_end][~targets, TAIL] = self._choose_from_pools(
                     positive_batch[i], "tail", num_tail_negatives
                 )
 
@@ -232,8 +231,20 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
             }
         return subset
 
-    def _strategy_negative_pool(self, h, r, t, target):
+    @lru_cache(maxsize=1024)
+    def _strategy_negative_pool(self, r, target):
         return self.subset[r][target]
+
+    def _choose_from_pools(self, triple, target, target_size) -> torch.tensor:
+        negative_pool = self._strategy_negative_pool(
+            int(triple[REL]), target
+        )
+
+        negatives = negative_pool[
+            torch.randint(0, len(negative_pool), size=(target_size,))
+        ]
+
+        return negatives
 
 
 class TypedNegativeSampler(SubSetNegativeSampler):
