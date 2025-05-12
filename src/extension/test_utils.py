@@ -26,6 +26,7 @@ def automatic_backend_chooser() -> torch.device:
         print("[Backend Chooser] CUDA Available")
         device = torch.device("cuda")
 
+    """
     if not torch.backends.mps.is_available():
         if not torch.backends.mps.is_built():
             print(
@@ -36,10 +37,12 @@ def automatic_backend_chooser() -> torch.device:
             print(
                 "[Backend Chooser] MPS not available because the current MacOS version is not 12.3+ and/or you do not have an MPS-enabled device on this machine."
             )
+    
     else:
 
         print("[Backend Chooser] MPS Available")
         device = torch.device("mps")
+    """
 
     print(f"[Backend Chooser] Using {str(device).upper()} Acceleration")
 

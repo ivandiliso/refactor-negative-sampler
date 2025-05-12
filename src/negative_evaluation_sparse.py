@@ -15,12 +15,9 @@ import pykeen.models
 import torch
 from extension.extended_dataset import OnMemoryDataset
 from extension.extended_filtering import NullPythonSetFilterer
-from extension.extended_sampling_optimized import (
+from extension.extended_sampling_sparse import (
     CorruptNegativeSampler,
-    RelationalNegativeSampler,
-    TypedNegativeSampler,
-    NearestNeighbourNegativeSampler,
-    NearMissNegativeSampler,
+
 )
 
 from pykeen.sampling import BernoulliNegativeSampler, BasicNegativeSampler
@@ -119,22 +116,21 @@ print(sampling_model)
 
 
 
-
 params = SimpleNamespace()
 
-
-params.negative_sampler_name = "random"
+params.negative_sampler_name = "corrupt"
 params.local_file = Path().cwd() / "nn_save.bin"
 params.num_negs_per_pos = 100
 params.sample = True
 params.sample_size = 500
 params.permutate_triples = True
 
-
 if params.permutate_triples:
     eval_triples = dataset.training.mapped_triples[torch.randperm(len(dataset.training.mapped_triples))[:params.sample_size]]
 else:
     eval_triples = dataset.training.mapped_triples[:params.sample_size]
+
+
 
 
 match params.negative_sampler_name:
