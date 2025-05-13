@@ -80,6 +80,12 @@ class OnMemoryDataset(Dataset):
             ).to_numpy()
         }
 
+        with open(self.data_path / "mapping/entity_to_id.json", "w") as f:
+            json.dump(entity_id_mapping, f, indent=4)
+
+        with open(self.data_path / "mapping/relation_to_id.json", "w") as f:
+            json.dump(relation_id_mapping, f, indent=4)
+
         self.training = TriplesFactory.from_path(
             path=self.data_path / TRAIN_SPLIT_FILENAME,
             create_inverse_triples=False,

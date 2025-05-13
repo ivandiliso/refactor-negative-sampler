@@ -87,6 +87,7 @@ print(
 # Loading Pretrained Model for Dynamic Sampling
 ################################################################################
 
+"""
 sampling_model = torch.load(
     Path.cwd() / "model" / "sampling" / "transe_yago420" / "trained_model.pkl",
     weights_only=False,
@@ -111,7 +112,7 @@ def sampling_model_prediction(model, hrt_batch, targets):
 
 
 print(sampling_model)
-
+"""
 
 # Negative Samplers Setup
 ################################################################################
@@ -123,7 +124,7 @@ print(sampling_model)
 params = SimpleNamespace()
 
 
-params.negative_sampler_name = "random"
+params.negative_sampler_name = "typed"
 params.local_file = Path().cwd() / "nn_save.bin"
 params.num_negs_per_pos = 100
 params.sample = True

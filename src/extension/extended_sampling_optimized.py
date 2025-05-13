@@ -350,8 +350,6 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
         # If corrupting HEAD we take the TAIL entity to use as a pivot for the subset
         # If corrupting TAIL we take the HEAD entity to use as a pivot for the subset d
 
-        print(f"corrupt {h} {r} {t} on {target}")
-
         match target:
             case "head":
                 negative_pool = self._get_subset(t, r, target)

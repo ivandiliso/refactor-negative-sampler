@@ -17,6 +17,7 @@ from extension.extended_dataset import OnMemoryDataset
 from extension.extended_filtering import NullPythonSetFilterer
 from extension.extended_sampling_sparse import (
     CorruptNegativeSampler,
+    TypedNegativeSampler
 
 )
 
@@ -84,10 +85,12 @@ print(
 # Loading Pretrained Model for Dynamic Sampling
 ################################################################################
 
+"""
 sampling_model = torch.load(
     Path.cwd() / "model" / "sampling" / "transe_yago420" / "trained_model.pkl",
     weights_only=False,
 )
+
 
 sampling_model = sampling_model.to(torch.device("cpu"))
 
@@ -108,7 +111,7 @@ def sampling_model_prediction(model, hrt_batch, targets):
 
 
 print(sampling_model)
-
+"""
 
 # Negative Samplers Setup
 ################################################################################
@@ -118,7 +121,7 @@ print(sampling_model)
 
 params = SimpleNamespace()
 
-params.negative_sampler_name = "corrupt"
+params.negative_sampler_name = "typed"
 params.local_file = Path().cwd() / "nn_save.bin"
 params.num_negs_per_pos = 100
 params.sample = True

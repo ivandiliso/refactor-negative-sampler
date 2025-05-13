@@ -1,0 +1,44 @@
+{
+    "hpo_optimized_params": {
+        "loss.margin": 1,
+        "regularizer.weight": 0.0017022815140302942,
+        "optimizer.lr": 0.0004360356448358325
+    },
+    "best_trial_number": 5,
+    "model": "<class 'pykeen.models.unimodal.trans_e.TransE'>",
+    "negative_sampler": "typed",
+    "epochs": 100,
+    "embedding_dim": 100,
+    "relation_dim": 100,
+    "scoring_fct_norm": 2,
+    "batch_size": 500,
+    "regularizer_p": 2,
+    "hpo_timeout": 4,
+    "hpo_strategy": "random",
+    "loss": "marginloss",
+    "hpo_margin": {
+        "type": "categorical",
+        "choices": [
+            1,
+            2,
+            5,
+            10
+        ]
+    },
+    "hpo_learning_rate": {
+        "low": 1e-05,
+        "high": 0.01,
+        "log": true
+    },
+    "hpo_regularizer_weight": {
+        "low": 1e-06,
+        "high": 0.01,
+        "log": true
+    },
+    "random_seed": 42,
+    "num_neg_per_pos": 10,
+    "dataset": "YAGO4-20",
+    "training_loop": "sLCWA",
+    "pykeen_version": "1.11.1",
+    "python_verison": "3.12.8 (main, Mar 15 2025, 15:49:07) [GCC 9.4.0]"
+}

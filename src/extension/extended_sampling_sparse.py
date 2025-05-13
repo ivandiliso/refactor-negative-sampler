@@ -162,4 +162,87 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
             
         return negative_ids
 
-       
+    
+class TypedNegativeSampler(SubSetNegativeSampler):
+    """Type-Constrained Negative sampler from "Krompaß, D., Baier, S., Tresp, V.: Type-constrained representation
+    learning in knowledge graphs. In: The Semantic Web-ISWC 2015". Produces the subsed of available negatives using only
+    entities that appear as domain (for corruptiong head) and range (for corrupting tails) of a triple relation.
+    Need additional information on triples, a dict with domain and range for each relation (mapped to IDS) and a
+    dictionary of class memebership for each entity (mapped to IDS)
+    """
+
+    def __init__(self, *, relation_domain_range_dict, entity_classes_dict, **kwargs):
+
+        object.__setattr__(self, "entity_classes", entity_classes_dict)
+        object.__setattr__(self, "relation_domain_range", relation_domain_range_dict)
+
+        super().__init__(**kwargs)
+
+        self.mapping = {"head": "domain", "tail": "range"}
+
+
+    def _choose_from_pools(self, negative_batch, target):
+
+
+        rels = negative_batch[:, REL]
+        target_id = 0 if target == "head" else 1
+
+        relation_classes = self.subset["domain_range"][rels, target_id]
+        
+        lens = self.subset["lens"][relation_classes]
+        lens_cumsum = self.subset["lens_cumsum"][relation_classes]
+        available_pools = (lens != 0)
+
+        
+        negative_ids = (
+            torch.tensor(np.random.randint(0, lens[available_pools]), dtype=int)
+            + lens_cumsum[available_pools]
+        )
+
+
+        out = torch.full(size=(len(negative_batch),), fill_value=-1, dtype=int)
+        out[available_pools] = self.subset["classes"][negative_ids]
+
+
+        return out
+
+
+
+    def _generate_subset(self, mapped_triples, **kwargs):
+
+        
+        domain_range = np.zeros((self.num_relations, 2), dtype=object)
+        for rel in range(self.num_relations):
+            domain_range[rel][0] = self.relation_domain_range[rel]["domain"]
+            domain_range[rel][1] = self.relation_domain_range[rel]["range"]
+
+        unique_names = np.unique(domain_range)
+        classes_mapping = {k:v for k,v in zip(unique_names.tolist(), np.arange(len(unique_names)).tolist())}
+        classes_dict = {i:[] for i in np.arange(len(unique_names)).tolist()}
+
+        for rel in range(self.num_relations):
+            domain_range[rel][0] = classes_mapping[domain_range[rel][0]]
+            domain_range[rel][1] = classes_mapping[domain_range[rel][1]]
+
+        for ent in range(self.num_entities):
+            classes = self.entity_classes[ent]
+            for c in classes:
+                if c in unique_names:
+                    classes_dict[classes_mapping[c]].append(ent)
+
+        subset_corrupt = torch.tensor([], dtype=int)
+        lens = torch.tensor([], dtype=torch.int16)
+        
+
+        for class_id in range(len(unique_names)):
+            subset_corrupt = torch.cat([subset_corrupt, torch.tensor(classes_dict[class_id], dtype=int)])
+            lens = torch.cat([lens, torch.tensor([len(classes_dict[class_id])])])
+
+        subset = dict()
+
+        subset["classes"] = subset_corrupt
+        subset["domain_range"] = torch.tensor(domain_range.astype(int), dtype=int)
+        subset["lens"] = lens
+        subset["lens_cumsum"] = torch.cumsum(lens, dim=0) - lens
+
+        return subset
