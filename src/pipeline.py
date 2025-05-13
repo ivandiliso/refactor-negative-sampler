@@ -27,7 +27,7 @@ from pykeen.regularizers import LpRegularizer
 from types import SimpleNamespace
 from pykeen.losses import MarginRankingLoss
 from pykeen.sampling import BernoulliNegativeSampler, BasicNegativeSampler
-from pykeen.models import TransE
+from pykeen.models import TransE, TransH, TransR
 from pykeen.pipeline import pipeline
 from pykeen.sampling.filtering import PythonSetFilterer
 from pykeen.triples import TriplesFactory
@@ -232,7 +232,30 @@ print(f"[Negative Sampler] {params.negative_sampler}")
 
 match params.model_name:
     case "transe":
-        params.model = TransE
+        params.model = TransE(
+            triples_factory = dataset.training,
+            embedding_dim=100,
+            regularizer=LpRegularizer,
+            regularizer_kwargs=dict(
+                p = params.regularizer_p,
+                weight = params.regularizer_weight
+            ),
+        )
+    case "transh":
+        params.model = TransH(
+            triples_factory = dataset.training,
+            embedding_dim=100,
+            regularizer=LpRegularizer,
+            regularizer_kwargs=dict(
+                p = params.regularizer_p,
+                weight = params.regularizer_weight
+            ),
+        )
+    case "transr":
+        params.model = TransR(
+            triples_factory = dataset.training,
+            embedding_dim=100
+        )
 
 
         
@@ -251,30 +274,19 @@ pipeline_result = pipeline(
     validation=dataset.validation,
 
     model=params.model,
-    model_kwargs=dict(
-        embedding_dim=params.embedding_dim,
-        random_seed = params.random_seed,
-        scoring_fct_norm=params.scoring_fct_norm
-    ),
 
     negative_sampler=params.negative_sampler,
     negative_sampler_kwargs=params.negative_sampler_kwargs,
 
     training_loop="sLCWA",
     training_kwargs=dict(
-        num_epochs=100,
-        batch_size=5000
+        num_epochs=50,
+        batch_size=1000
     ),
 
     loss=MarginRankingLoss,
     loss_kwargs=dict(
         margin=params.margin
-    ),
-
-    regularizer=LpRegularizer,
-    regularizer_kwargs=dict(
-        p = params.regularizer_p,
-        weight = params.regularizer_weight
     ),
 
     optimizer=Adam,
@@ -285,7 +297,7 @@ pipeline_result = pipeline(
     device=params.device,
 
     evaluation_kwargs=dict(
-        batch_size = 5000
+        batch_size = 500
     )
 )
 
