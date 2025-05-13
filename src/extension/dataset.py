@@ -1,13 +1,15 @@
 import pykeen
+import pykeen.datasets
 from pykeen.datasets.base import Dataset
 from pykeen.triples import TriplesFactory
 from pathlib import Path
 import json
 import ast
 import pandas as pd
+from pykeen.datasets import get_dataset
 
-ENTITY_TO_ID_FILENAME = "mapping/entity_to_id.tsv"
-RELATION_TO_ID_FILENAME = "mapping/relation_to_id.tsv"
+ENTITY_TO_ID_FILENAME = "mapping/entity_to_id.json"
+RELATION_TO_ID_FILENAME = "mapping/relation_to_id.json"
 TRAIN_SPLIT_FILENAME = "train.txt"
 VALID_SPLIT_FILENAME = "valid.txt"
 TEST_SPLIT_FILENAME = "test.txt"
@@ -24,8 +26,8 @@ class OnMemoryDataset(Dataset):
     - train.txt : Training triples in "h r t" format using RDF names
     - test.txt : Testing triples in "h r t" format using RDF names
     - valid.txt : Validation triples in "h r t" format using RDF names
-    - entity_to_id.tsv: Tab separated file for id to entity name mapping
-    - relation_to_id.tsv: Tab separeted file for id to relation name mapping
+    - entity_to_id.json: Tab separated file for id to entity name mapping
+    - relation_to_id.json: Tab separeted file for id to relation name mapping
     - entities_classes.json : Additional metadata of class memebership for each entity, need to have format
 
     ```json
@@ -66,31 +68,19 @@ class OnMemoryDataset(Dataset):
         """
         self.data_path = Path(data_path)
 
-        entity_id_mapping = {
-            str(t[1]): int(t[0])
-            for t in pd.read_csv(
-                self.data_path / ENTITY_TO_ID_FILENAME, sep="\t"
-            ).to_numpy()
-        }
+       
+        with open(self.data_path / ENTITY_TO_ID_FILENAME, "r") as f:
+            entity_id_mapping = json.load(f)
 
-        relation_id_mapping = {
-            str(t[1]): int(t[0])
-            for t in pd.read_csv(
-                self.data_path / RELATION_TO_ID_FILENAME, sep="\t"
-            ).to_numpy()
-        }
-
-        with open(self.data_path / "mapping/entity_to_id.json", "w") as f:
-            json.dump(entity_id_mapping, f, indent=4)
-
-        with open(self.data_path / "mapping/relation_to_id.json", "w") as f:
-            json.dump(relation_id_mapping, f, indent=4)
+        with open(self.data_path / RELATION_TO_ID_FILENAME, "r") as f:
+            relation_id_mapping = json.load(f)
+        
 
         self.training = TriplesFactory.from_path(
             path=self.data_path / TRAIN_SPLIT_FILENAME,
             create_inverse_triples=False,
             entity_to_id=entity_id_mapping,
-            relation_to_id=relation_id_mapping,
+            relation_to_id=relation_id_mapping
         )
 
         self.testing = TriplesFactory.from_path(

@@ -12,9 +12,9 @@ from pathlib import Path
 import pykeen
 import pykeen.models
 import torch
-from extension.extended_dataset import OnMemoryDataset
-from extension.extended_filtering import NullPythonSetFilterer
-from extension.extended_sampling_optimized import (
+from extension.dataset import OnMemoryDataset
+from extension.filtering import NullPythonSetFilterer
+from extension.sampling import (
     CorruptNegativeSampler,
     RelationalNegativeSampler,
     TypedNegativeSampler,
@@ -32,7 +32,7 @@ from pykeen.pipeline import pipeline
 from pykeen.sampling.filtering import PythonSetFilterer
 from pykeen.triples import TriplesFactory
 from tabulate import tabulate
-from extension.test_utils import automatic_backend_chooser, set_random_seed_all
+from extension.utils import automatic_backend_chooser, set_random_seed_all
 import argparse
 from pykeen.hpo import hpo_pipeline
 from pykeen.sampling import negative_sampler_resolver
@@ -59,23 +59,26 @@ parser.add_argument(
     required=True,
 )
 parser.add_argument("--negatives", type=int, choices=[2, 10, 40, 100], required=True)
+parser.add_argument("--dataset", type=str, choices=["yago4-20", "db50k", "fb15k", "wn18"])
 
 args = parser.parse_args()
 
 print(f"[HPO Pipeline] Starting Experiment with configuration:")
+print(f"[HPO Pipeline] Dataset: {args.dataset.capitalize()}")
 print(f"[HPO Pipeline] Model: {args.model.capitalize()}")
 print(f"[HPO Pipeline] Negative Sampler: {args.sampler.capitalize()}")
 print(f"[HPO Pipeline] Negatives per Positive: {args.negatives}")
 
 params.experiment_name = f"{args.sampler.upper()}_{args.model.upper()}_{args.negatives}_{str(round(datetime.now().timestamp() * 1000))}"
 
+params.dataset_name = args.dataset
 params.model_name = args.model
 params.negative_sampler_name = args.sampler
 params.num_neg_per_pos = args.negatives
 
 print(f"[HPO Pipeline] Experiment named {params.experiment_name}")
 
-params.data_path = Path.cwd() / "data" / "YAGO4-20"
+params.data_path = Path.cwd() / "data" / params.dataset_name.upper()
 params.experiment_path = Path.cwd() / "experiments" / params.experiment_name
 
 print(f"[HPO Pipeline] Experiment will be saved in {params.experiment_path}")
@@ -133,9 +136,23 @@ params.hpo_regularizer_weight = dict(type=float, low=1e-6, high=1e-2, log=True)
 # Dataset Loading
 ################################################################################
 
-dataset = OnMemoryDataset(
-    data_path=params.data_path, load_domain_range=True, load_entity_classes=True
-)
+match params.dataset_name:
+    case "yago4-20":
+        dataset = OnMemoryDataset(
+            data_path=params.data_path, load_domain_range=True, load_entity_classes=True
+        )
+    case "wn18":
+        dataset = OnMemoryDataset(
+            data_path=params.data_path, load_domain_range=False, load_entity_classes=False
+        )
+    case "db50k":
+        dataset = OnMemoryDataset(
+            data_path=params.data_path, load_domain_range=True, load_entity_classes=True
+        )
+    case "fb15k":
+        dataset = OnMemoryDataset(
+            data_path=params.data_path, load_domain_range=False, load_entity_classes=False
+        )
 
 print("[Data Loader] Dataset Information")
 print(

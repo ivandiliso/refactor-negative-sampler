@@ -8,7 +8,7 @@ from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple, Union, c
 import torch
 import tqdm as tqdm
 from collections.abc import Callable
-from extension.test_utils import SimpleLogger
+from extension.utils import SimpleLogger
 from pykeen.sampling import NegativeSampler
 from pykeen.triples import CoreTriplesFactory
 from pykeen.typing import BoolTensor, EntityMapping, LongTensor, MappedTriples, Target
@@ -17,7 +17,7 @@ from functools import lru_cache
 from pykeen.models import TransE, RESCAL, ERModel
 from scipy.spatial import KDTree
 import numpy as np
-from extension.extended_constants import (
+from extension.constants import (
     HEAD,
     TAIL,
     REL,
@@ -244,5 +244,144 @@ class TypedNegativeSampler(SubSetNegativeSampler):
         subset["domain_range"] = torch.tensor(domain_range.astype(int), dtype=int)
         subset["lens"] = lens
         subset["lens_cumsum"] = torch.cumsum(lens, dim=0) - lens
+
+        return subset
+    
+
+class CorruptNegativeSampler(SubSetNegativeSampler):
+    """Negative sampler from "Richard Socher, Danqi Chen, Christopher D Manning,
+    and Andrew Ng. 2013. Reasoning With Neural Tensor Networks for Knowledge
+    Base Completion." Corrupt head and tails based on the subset of entities seen
+    as head or tail of the specific relation
+
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+    def _generate_subset(self, mapped_triples):
+        subset = dict()
+
+        subset_head = torch.tensor([], dtype=torch.int16)
+        subset_tail = torch.tensor([], dtype=torch.int16)
+        lens = torch.zeros(size=(self.num_relations, 2), dtype=torch.int16)
+
+        for r in range(self.num_relations):
+            mask = mapped_triples[mapped_triples[:, REL] == r]
+
+            head_negatives = torch.unique(mask[:, HEAD])
+            tail_negatives = torch.unique(mask[:, TAIL])
+         
+            subset_head = torch.cat([subset_head, head_negatives])
+            subset_tail = torch.cat([subset_tail, tail_negatives])
+
+            lens[r, 0] = len(head_negatives)
+            lens[r, 1] = len(tail_negatives)
+
+        subset["head"] = subset_head
+        subset["tail"] = subset_tail
+        subset["lens"] = lens
+        subset["lens_cumsum"] = torch.cumsum(lens, dim=0) - lens
+
+        return subset
+
+
+    def _choose_from_pools(self, negative_batch, target) -> torch.tensor:
+        
+        rels = negative_batch[:, REL]
+        target_id = 0 if target == "head" else 1
+
+        lens = self.subset["lens"][rels, target_id]
+        
+        negative_ids = (
+            torch.tensor(np.random.randint(0, lens), dtype=torch.int16)
+            + self.subset["lens_cumsum"][rels, target_id]
+        )
+
+        negative_ids = self.subset[target][negative_ids]
+            
+        return negative_ids
+    
+
+class RelationalNegativeSampler(SubSetNegativeSampler):
+    """Relational constrained Negative Sampler from "Kotnis, B., Nastase, V.: Analysis of the impact of negative
+    sampling on link prediction in knowledge graphs".
+    If follows the assuption that each head,tail pair are connected
+    by only one relation, so, fixed the head (tail) we take all the tail (head) elements that appear in the triple with
+    a relation different from the original one.
+    """
+
+    def __init__(
+        self,
+        *args,
+        local_file=None,
+        **kwargs,
+    ):
+
+        object.__setattr__(self, "local_file", Path(local_file))
+
+        super().__init__(
+            *args,
+            **kwargs,
+        )
+
+    def _generate_subset(self, mapped_triples, **kwargs):
+
+        subset = dict()
+
+        if self.local_file.is_file():
+            print("[RelationalNegativeSampler] Loading Pre-Computed Subset")
+            with open(self.local_file, "rb") as f:
+                subset = torch.load(f, weights_only=False)
+
+        else:
+            print("[RelationalNegativeSampler] Generating Subset")
+            for entity_id in tqdm.tqdm(range(self.num_entities)):
+
+                entity_dict = {
+                    "head": mapped_triples[mapped_triples[:, HEAD] == entity_id],
+                    "tail": mapped_triples[mapped_triples[:, TAIL] == entity_id],
+                }
+
+                lens = torch.zeros(size=(2,self.num_entities, self.num_relations))
+                head_subset = torch.tensor([], dtype=int)
+                tail_subset = torch.tensor([], dtype=int)
+
+                for e in 
+                
+
+                subset[entity_id] = entity_dict
+
+            with open(self.local_file, "wb") as f:
+                torch.save(subset, f)
+
+            print(f"[RelationalNegativeSampler] Saved Subset as {self.local_file}")
+
+        return subset
+
+    def _strategy_negative_pool(self, h, r, t, target):
+
+        # If corrupting HEAD we take the TAIL entity to use as a pivot for the subset
+        # If corrupting TAIL we take the HEAD entity to use as a pivot for the subset d
+
+        print(f"corrupt {h} {r} {t} on {target}")
+
+        match target:
+            case "head":
+                negative_pool = self._get_subset(t, r, target)
+            case "tail":
+                negative_pool = self._get_subset(h, r, target)
+
+        negative_pool = negative_pool if len(negative_pool) > 0 else torch.tensor([-1])
+
+        return negative_pool
+
+    @lru_cache(maxsize=1024, typed=None)
+    def _get_subset(self, entity, rel, target):
+
+        pivot_entity_position = SWAP_TARGET[target]
+        subset = self.subset[entity][pivot_entity_position]
+        subset = subset[subset[:, REL] != rel, TARGET_TO_INDEX[target]]
 
         return subset

@@ -8,7 +8,7 @@ from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple, Union, c
 import torch
 import tqdm as tqdm
 from collections.abc import Callable
-from extension.test_utils import SimpleLogger
+from extension.utils import SimpleLogger
 from pykeen.sampling import NegativeSampler
 from pykeen.triples import CoreTriplesFactory
 from pykeen.typing import BoolTensor, EntityMapping, LongTensor, MappedTriples, Target
@@ -17,7 +17,7 @@ from functools import lru_cache
 from pykeen.models import TransE, RESCAL, ERModel
 from scipy.spatial import KDTree
 import numpy as np
-from extension.extended_constants import (
+from extension.constants import (
     HEAD,
     TAIL,
     REL,
@@ -168,6 +168,8 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         less_dict = {0: 0, 2: 0, 10: 0, 40: 0, 100: 0}
         total_len = len(head_relation) + len(tail_relation)
 
+        print(total_len)
+
         print("[SubsetNegativeSampler] Computing <h,r,*> Negative Pools")
         for comb in tqdm.tqdm(head_relation):
             e = int(comb[0])
@@ -232,19 +234,9 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
         return subset
 
     @lru_cache(maxsize=1024)
-    def _strategy_negative_pool(self, r, target):
+    def _strategy_negative_pool(self, h, r, t, target):
         return self.subset[r][target]
 
-    def _choose_from_pools(self, triple, target, target_size) -> torch.tensor:
-        negative_pool = self._strategy_negative_pool(
-            int(triple[REL]), target
-        )
-
-        negatives = negative_pool[
-            torch.randint(0, len(negative_pool), size=(target_size,))
-        ]
-
-        return negatives
 
 
 class TypedNegativeSampler(SubSetNegativeSampler):
@@ -264,7 +256,9 @@ class TypedNegativeSampler(SubSetNegativeSampler):
 
         self.mapping = {"head": "domain", "tail": "range"}
 
-    def _strategy_negative_pool(self, h, r, t, target):
+
+    @lru_cache(maxsize=1024)
+    def _strategy_negative_pool(self, h,r,t, target):
 
         target_class = self.relation_domain_range[r][self.mapping[target]]
 
@@ -280,10 +274,18 @@ class TypedNegativeSampler(SubSetNegativeSampler):
 
         classes_dict = dict()
 
+        for i in range(self.num_relations):
+            if i not in self.relation_domain_range.keys():
+                self.relation_domain_range[i] = {
+                    "domain" : "None",
+                    "range" : "None"
+                }
+
         for _, domain_range_dict in self.relation_domain_range.items():
             for classes_name in domain_range_dict.values():
                 if classes_name != "None":
                     classes_dict[classes_name] = []
+
 
         for entity_id, classes_names in self.entity_classes.items():
             for class_name in classes_names:

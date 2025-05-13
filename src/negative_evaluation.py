@@ -13,9 +13,9 @@ from types import SimpleNamespace
 import pykeen
 import pykeen.models
 import torch
-from extension.extended_dataset import OnMemoryDataset
-from extension.extended_filtering import NullPythonSetFilterer
-from extension.extended_sampling_optimized import (
+from extension.dataset import OnMemoryDataset
+from extension.filtering import NullPythonSetFilterer
+from extension.sampling import (
     CorruptNegativeSampler,
     RelationalNegativeSampler,
     TypedNegativeSampler,
@@ -29,7 +29,7 @@ from pykeen.pipeline import pipeline
 from pykeen.sampling.filtering import PythonSetFilterer
 from pykeen.triples import TriplesFactory
 from tabulate import tabulate
-from extension.test_utils import *
+from extension.utils import *
 
 # Python and Torch Configuration
 ################################################################################
@@ -57,14 +57,15 @@ signal.signal(signal.SIGINT, signal_handler)
 
 # Initial Global Variables Configuration
 ################################################################################
-config = {"home_path": Path().cwd(), "dataset_name": "YAGO4-20"}
+dataset_name = "FB15K"
+config = {"home_path": Path().cwd(), "dataset_name": dataset_name}
 config["data_path"] = config["home_path"] / "data" / config["dataset_name"]
 
 
 # Dataset Loading
 ################################################################################
 dataset = OnMemoryDataset(
-    data_path=config["data_path"], load_domain_range=True, load_entity_classes=True
+    data_path=config["data_path"], load_domain_range=False, load_entity_classes=False
 )
 
 pretty_print("t", "Dataset Information")
@@ -87,7 +88,6 @@ print(
 # Loading Pretrained Model for Dynamic Sampling
 ################################################################################
 
-"""
 sampling_model = torch.load(
     Path.cwd() / "model" / "sampling" / "transe_yago420" / "trained_model.pkl",
     weights_only=False,
@@ -112,20 +112,16 @@ def sampling_model_prediction(model, hrt_batch, targets):
 
 
 print(sampling_model)
-"""
+
 
 # Negative Samplers Setup
 ################################################################################
 
-
-
-
-
 params = SimpleNamespace()
 
 
-params.negative_sampler_name = "typed"
-params.local_file = Path().cwd() / "nn_save.bin"
+params.negative_sampler_name = "corrupt"
+params.local_file = Path().cwd() / (params.negative_sampler_name + dataset_name + ".bin")
 params.num_negs_per_pos = 100
 params.sample = True
 params.sample_size = 500
@@ -198,9 +194,11 @@ match params.negative_sampler_name:
 
 
 
-#val = params.negative_sampler.average_pool_size(dataset.training.mapped_triples)
+val, dict = params.negative_sampler.average_pool_size(dataset.training.mapped_triples)
 
-#print(val)
+print(val)
+for k,v in dict.items():
+    print(k,v)
 
 
 

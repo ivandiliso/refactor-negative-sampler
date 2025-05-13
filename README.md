@@ -5,7 +5,9 @@
 ```
 📁 data             -> Dataset used during traning, validation and testing
     📁 YAGO4-20
-    📁 YAGO39K   
+    📁 FB15K
+    📁 YAGO4-20
+    📁 YAGO4-20 
 📁 doc              -> Documentations and logs
 📁 model
     📁 embedding    -> Embedding models checkpoints
