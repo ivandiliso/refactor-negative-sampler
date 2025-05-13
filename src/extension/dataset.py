@@ -7,14 +7,17 @@ import json
 import ast
 import pandas as pd
 from pykeen.datasets import get_dataset
-
-ENTITY_TO_ID_FILENAME = "mapping/entity_to_id.json"
-RELATION_TO_ID_FILENAME = "mapping/relation_to_id.json"
-TRAIN_SPLIT_FILENAME = "train.txt"
-VALID_SPLIT_FILENAME = "valid.txt"
-TEST_SPLIT_FILENAME = "test.txt"
-DOMAIN_RANGE_METATDATA_FILENAME = "metadata/relation_domain_range.json"
-CLASS_MEMBERSHIP_METADATA_FILENAME = "metadata/entity_classes.json"
+import zipfile
+import gdown
+from extension.constants import (
+    ENTITY_TO_ID_FILENAME,
+    RELATION_TO_ID_FILENAME,
+    TRAIN_SPLIT_FILENAME,
+    TEST_SPLIT_FILENAME,
+    VALID_SPLIT_FILENAME,
+    CLASS_MEMBERSHIP_METADATA_FILENAME,
+    DOMAIN_RANGE_METATDATA_FILENAME
+)
 
 
 class OnMemoryDataset(Dataset):
@@ -68,19 +71,17 @@ class OnMemoryDataset(Dataset):
         """
         self.data_path = Path(data_path)
 
-       
         with open(self.data_path / ENTITY_TO_ID_FILENAME, "r") as f:
             entity_id_mapping = json.load(f)
 
         with open(self.data_path / RELATION_TO_ID_FILENAME, "r") as f:
             relation_id_mapping = json.load(f)
-        
 
         self.training = TriplesFactory.from_path(
             path=self.data_path / TRAIN_SPLIT_FILENAME,
             create_inverse_triples=False,
             entity_to_id=entity_id_mapping,
-            relation_to_id=relation_id_mapping
+            relation_to_id=relation_id_mapping,
         )
 
         self.testing = TriplesFactory.from_path(
@@ -130,3 +131,26 @@ class OnMemoryDataset(Dataset):
             for k, v in data.items()
             if k in self.relation_to_id.keys()
         }
+
+
+class OnCloudDataset(OnMemoryDataset):
+    def __init__(self, data_path, dataset_name, load_entity_classes, load_domain_range, **kwargs):
+        match dataset_name:
+            case "yago4-20":
+                url = "https://drive.google.com/file/d/1XDwdvz23X4V0tmUI9ONvvBWS0W5yW3b-/view?usp=sharing"
+            case "wn18":
+                url = "https://drive.google.com/file/d/1kT5rUw1IQYG9i4Kew9cTm1QLt85tRfHN/view?usp=sharing"
+                load_domain_range = False
+                load_entity_classes = False
+            case "fb15k":
+                url = "https://drive.google.com/file/d/11wQRJVez7xBCGeRgf5ioAia5rOPz2Nh-/view?usp=sharing"
+                load_domain_range = False
+                load_entity_classes = False
+            case "db50k":
+                url = "https://drive.google.com/file/d/1El3i5J2RClkliJcA_lVt5IcZzLP_UzPJ/view?usp=sharing"
+
+        gdown.download(url, output= str(data_path / f"{dataset_name}.zip") , quiet=False,)
+        with zipfile.ZipFile(str(data_path / f"{dataset_name}.zip"), 'r') as zip_file:
+            zip_file.extractall(data_path)
+
+        super().__init__(data_path, load_entity_classes, load_domain_range, **kwargs)
