@@ -38,16 +38,28 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
     def __init__(
         self,
         *,
-        mapped_triples,
-        num_entities=None,
-        num_relations=None,
-        num_negs_per_pos=None,
-        filtered=False,
-        filterer=None,
-        filterer_kwargs=None,
-        integrate=False,
+        mapped_triples: MappedTriples,
+        num_entities: int = None,
+        num_relations: int = None,
+        num_negs_per_pos: int = None,
+        filtered: int = False,
+        filterer: str = None,
+        filterer_kwargs: dict = None,
+        integrate: bool = False,
         **kwargs,
     ):
+        """_summary_
+
+        Args:
+            mapped_triples (MappedTriples): Triples used for computation of subsets and filtering
+            num_entities (int, optional): Number of entities. Defaults to None.
+            num_relations (int, optional): Number of relations. Defaults to None.
+            num_negs_per_pos (int, optional): Negative triples generated per positive ones. Defaults to None.
+            filtered (int, optional): Where to use a filterer. Defaults to False.
+            filterer (str, optional): Filterer to use is filtered is se to True. Defaults to None.
+            filterer_kwargs (dict, optional): Dictionary arguments for filterer . Defaults to None.
+            integrate (bool, optional): Integrate negative pool with random instances if they are below the required size. Defaults to False.
+        """
         super().__init__(
             mapped_triples=mapped_triples,
             num_entities=num_entities,
@@ -107,7 +119,6 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             self.num_negs_per_pos, dim=0
         )
 
-
         for i in range(0, positive_batch.size(0)):
 
             batch_start = i * self.num_negs_per_pos
@@ -123,13 +134,17 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
                 num_tail_negatives = self.num_negs_per_pos - num_head_negatives
 
                 # Head Corruption
-                negative_batch[batch_start:batch_end][targets, HEAD] = self._choose_from_pools(
-                    positive_batch[i], "head", num_head_negatives
+                negative_batch[batch_start:batch_end][targets, HEAD] = (
+                    self._choose_from_pools(
+                        positive_batch[i], "head", num_head_negatives
+                    )
                 )
 
                 # Tail Corruption
-                negative_batch[batch_start:batch_end][~targets, TAIL] = self._choose_from_pools(
-                    positive_batch[i], "tail", num_tail_negatives
+                negative_batch[batch_start:batch_end][~targets, TAIL] = (
+                    self._choose_from_pools(
+                        positive_batch[i], "tail", num_tail_negatives
+                    )
                 )
 
             else:
@@ -139,7 +154,9 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
 
         return negative_batch.view(*batch_shape, self.num_negs_per_pos, 3)
 
-    def _choose_from_pools(self, triple: torch.tensor, target: str, target_size: int) -> torch.tensor:
+    def _choose_from_pools(
+        self, triple: torch.tensor, target: str, target_size: int
+    ) -> torch.tensor:
         """Sample negatives from the negative pool
 
         Args:
@@ -154,12 +171,31 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             int(triple[HEAD]), int(triple[REL]), int(triple[TAIL]), target
         )
 
-        if negative_pool[0] == -1:
-            negatives = torch.randint(0, self.num_entities, size=(target_size,))
+        if self.integrate:
+            available_len = len(negative_pool)
+            if negative_pool[0] == -1:
+                # We cannot have a negative pool
+                negatives = torch.randint(0, self.num_entities, size=(target_size,))
+            elif available_len < target_size:
+                # The negative pool does not reach the desired size
+                negatives = torch.cat(
+                    [
+                        negative_pool,
+                        torch.randint(
+                            0, self.num_entities, size=(target_size - available_len,)
+                        ),
+                    ],
+                    dim=0,
+                )
+            else:
+                # The negative pool exists and has enough negatives
+                negatives = negative_pool[
+                    torch.randint(0, len(negative_pool), size=(target_size,))
+                ]
         else:
             negatives = negative_pool[
-            torch.randint(0, len(negative_pool), size=(target_size,))
-        ]
+                torch.randint(0, len(negative_pool), size=(target_size,))
+            ]
 
         return negatives
 
@@ -168,7 +204,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         """Returns all the real negatives given an entity, a relation, and the taget for corruption.
         if target == "head" returns the full availabile negative entities for (*, rel, entity)
         if target == "tail" returns the full availabile negative entities for (entity, rel, *)
-        
+
         Args:
             e (int): Entity ID
             r (int): Relation ID
@@ -177,7 +213,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         Returns:
             torch.tensor: Positive istances IDs
         """
-        
+
         e_position = TARGET_TO_INDEX[SWAP_TARGET[target]]
 
         positive_pool = self.mapped_triples[self.mapped_triples[:, e_position] == e]
@@ -191,7 +227,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         """Compute the average pool size for every h,r combination and r,t combination
 
         Args:
-            check_triples (MappedTriples): Triples used for computating the pool size 
+            check_triples (MappedTriples): Triples used for computating the pool size
 
         Returns:
             Tuple[int, dict]: Average pool size, and dictionary with number of triples with less than X negative (from 2 to 100)
@@ -201,7 +237,9 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
 
         return self._compute_poolsize_aggregate(head_relation, tail_relation)
 
-    def _compute_poolsize_aggregate(self, head_relation: torch.tensor, tail_relation: torch.tensor) -> Tuple[int, dict]:
+    def _compute_poolsize_aggregate(
+        self, head_relation: torch.tensor, tail_relation: torch.tensor
+    ) -> Tuple[int, dict]:
         """Compute the average pool size for every h,r combination and r,t combination, strategy specific implementation
 
         Args:
@@ -216,16 +254,17 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         less_dict = {0: 0, 2: 0, 10: 0, 40: 0, 100: 0}
         total_len = len(head_relation) + len(tail_relation)
 
-
         print("[SubsetNegativeSampler] Computing <h,r,*> Negative Pools")
         for comb in tqdm.tqdm(head_relation):
             e = int(comb[0])
             r = int(comb[1])
             negative_pool = self._strategy_negative_pool(e, r, -1, "tail")
-           
+
             if -1 in negative_pool:
                 if self.integrate:
-                    pool_size = self.num_entities - len(self._get_positive_pool(e, r, "tail"))
+                    pool_size = self.num_entities - len(
+                        self._get_positive_pool(e, r, "tail")
+                    )
                 else:
                     pool_size = 0
             else:
@@ -233,7 +272,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
                 pool_size = int(
                     torch.isin(negative_pool, positive_pool, invert=True).sum()
                 )
-            
+
             total += pool_size
             for k in list(less_dict.keys()):
                 if pool_size <= k:
@@ -246,7 +285,9 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             negative_pool = self._strategy_negative_pool(-1, r, e, "head")
             if -1 in negative_pool:
                 if self.integrate:
-                    pool_size = self.num_entities - len(self._get_positive_pool(e, r, "head"))
+                    pool_size = self.num_entities - len(
+                        self._get_positive_pool(e, r, "head")
+                    )
                 else:
                     pool_size = 0
             else:
@@ -271,7 +312,6 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
     and Andrew Ng. 2013. Reasoning With Neural Tensor Networks for Knowledge
     Base Completion." Corrupt head and tails based on the subset of entities seen
     as head or tail of the specific relation
-
     """
 
     def __init__(self, *args, **kwargs):
@@ -293,7 +333,6 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
         return self.subset[r][target]
 
 
-
 class TypedNegativeSampler(SubSetNegativeSampler):
     """Type-Constrained Negative sampler from "Krompaß, D., Baier, S., Tresp, V.: Type-constrained representation
     learning in knowledge graphs. In: The Semantic Web-ISWC 2015". Produces the subsed of available negatives using only
@@ -311,9 +350,8 @@ class TypedNegativeSampler(SubSetNegativeSampler):
 
         self.mapping = {"head": "domain", "tail": "range"}
 
-
     @lru_cache(maxsize=1024)
-    def _strategy_negative_pool(self, h,r,t, target):
+    def _strategy_negative_pool(self, h, r, t, target):
 
         target_class = self.relation_domain_range[r][self.mapping[target]]
 
@@ -331,16 +369,12 @@ class TypedNegativeSampler(SubSetNegativeSampler):
 
         for i in range(self.num_relations):
             if i not in self.relation_domain_range.keys():
-                self.relation_domain_range[i] = {
-                    "domain" : "None",
-                    "range" : "None"
-                }
+                self.relation_domain_range[i] = {"domain": "None", "range": "None"}
 
         for _, domain_range_dict in self.relation_domain_range.items():
             for classes_name in domain_range_dict.values():
                 if classes_name != "None":
                     classes_dict[classes_name] = []
-
 
         for entity_id, classes_names in self.entity_classes.items():
             for class_name in classes_names:
@@ -428,6 +462,10 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
 
 
 class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
+    """Nearest Neighbour Negative Sampler from "Kotnis, B., Nastase, V.: Analysis of the impact of negative
+    sampling on link prediction in knowledge graphs". Uses the entity embedding from a pretrained KGE input model to compute
+    the entity K-Nearest neighbours to be used as negatives.
+    """
 
     def __init__(
         self,
@@ -436,6 +474,12 @@ class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
         num_query_results: int = None,
         **kwargs,
     ):
+        """Inizialite the NearestNeighbourNegativeSampler
+
+        Args:
+            sampling_model (ERModel, optional): Auxiliary pretrained model used to get entity embeddings. Defaults to None.
+            num_query_results (int, optional): The K to be used in K Nearest Neighbours search. Defaults to None.
+        """
         object.__setattr__(self, "sampling_model", sampling_model)
         object.__setattr__(self, "num_query_results", num_query_results)
 
@@ -483,14 +527,7 @@ class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
 
     @lru_cache(maxsize=1024, typed=False)
     def _query_kdtree(self, entity_id):
-        """TODO Optimize
 
-        Args:
-            entity_id (_type_): _description_
-
-        Returns:
-            _type_: _description_
-        """
         search_entity = self.subset["entity_representations"][entity_id]
         _, indices = self.subset["kdtree"].query(
             search_entity, k=self.num_query_results

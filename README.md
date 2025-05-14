@@ -9,6 +9,7 @@
     📁 WN18         -> Download from https://drive.google.com/file/d/1kT5rUw1IQYG9i4Kew9cTm1QLt85tRfHN/view?usp=drive_link
     📁 DB50K        -> Download from https://drive.google.com/file/d/1El3i5J2RClkliJcA_lVt5IcZzLP_UzPJ/view?usp=drive_link
 📁 doc              -> Documentations and logs
+📁 cached           -> Cached Negative Sampler subsets for faster computation
 📁 model
     📁 embedding    -> Embedding models checkpoints
     📁 sampling     -> Checkpoints for models used in dynamic sampling
@@ -88,7 +89,9 @@ python src/hpo_pipeline.py
 
 #### negative_evaluation.py
 
-Example code on how to compute the negative sampler statistic for a specific dataset
+Example code on how to compute the negative sampler statistic for a specific dataset. This file also contains use examples 
+of Dynamic Sampling using a TransE pretained model on YAGO4-20, it provides pre-written prediciton function that work 
+with the provided model.
 
 
 

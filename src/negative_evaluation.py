@@ -57,7 +57,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 # Initial Global Variables Configuration
 ################################################################################
-dataset_name = "FB15K"
+dataset_name = "WN18"
 config = {"home_path": Path().cwd(), "dataset_name": dataset_name}
 config["data_path"] = config["home_path"] / "data" / config["dataset_name"]
 
@@ -91,7 +91,7 @@ print(
 sampling_model = torch.load(
     Path.cwd() / "model" / "sampling" / "transe_yago420" / "trained_model.pkl",
     weights_only=False,
-    map_location=torch.device("cpu")
+    map_location=torch.device("cpu"),
 )
 
 sampling_model = sampling_model.to(torch.device("cpu"))
@@ -122,70 +122,65 @@ params = SimpleNamespace()
 
 
 params.negative_sampler_name = "relational"
-params.local_file = Path().cwd() / (params.negative_sampler_name + dataset_name + ".bin")
-params.num_negs_per_pos = 100
+params.local_file = Path().cwd() / "cached" / (
+    params.negative_sampler_name + dataset_name + ".bin"
+)
+params.num_negs_per_pos = 2
 params.sample = True
-params.sample_size = 500
+params.sample_size = 5
 params.permutate_triples = True
 params.integrate = True
-params.compute_statistic = True
+params.compute_statistic = False
 
 
 if params.permutate_triples:
-    eval_triples = dataset.training.mapped_triples[torch.randperm(len(dataset.training.mapped_triples))[:params.sample_size]]
+    eval_triples = dataset.training.mapped_triples[
+        torch.randperm(len(dataset.training.mapped_triples))[: params.sample_size]
+    ]
 else:
-    eval_triples = dataset.training.mapped_triples[:params.sample_size]
+    eval_triples = dataset.training.mapped_triples[: params.sample_size]
 
 
 match params.negative_sampler_name:
     case "random":
-        params.negative_sampler = (
-            BasicNegativeSampler(
-                mapped_triples=dataset.training.mapped_triples,
-                filtered=True,
-                filterer=NullPythonSetFilterer(
-                    mapped_triples=dataset.training.mapped_triples
-                ),
-                num_negs_per_pos=params.num_negs_per_pos,
-
-            )
+        params.negative_sampler = BasicNegativeSampler(
+            mapped_triples=dataset.training.mapped_triples,
+            filtered=True,
+            filterer=NullPythonSetFilterer(
+                mapped_triples=dataset.training.mapped_triples
+            ),
+            num_negs_per_pos=params.num_negs_per_pos,
         )
     case "bernoulli":
-        params.negative_sampler = (
-            BernoulliNegativeSampler(
-                mapped_triples=dataset.training.mapped_triples,
-                filtered=True,
-                filterer=NullPythonSetFilterer(
-                    mapped_triples=dataset.training.mapped_triples
-                ),
-                num_negs_per_pos=params.num_negs_per_pos,
-            )
+        params.negative_sampler = BernoulliNegativeSampler(
+            mapped_triples=dataset.training.mapped_triples,
+            filtered=True,
+            filterer=NullPythonSetFilterer(
+                mapped_triples=dataset.training.mapped_triples
+            ),
+            num_negs_per_pos=params.num_negs_per_pos,
         )
     case "corrupt":
-        params.negative_sampler = (
-            CorruptNegativeSampler(
-                mapped_triples=dataset.training.mapped_triples,
-                filtered=True,
-                filterer=NullPythonSetFilterer(
-                    mapped_triples=dataset.training.mapped_triples
-                ),
-                num_negs_per_pos=params.num_negs_per_pos,
-                integrate = params.integrate
-            )
+        params.negative_sampler = CorruptNegativeSampler(
+            mapped_triples=dataset.training.mapped_triples,
+            filtered=True,
+            filterer=NullPythonSetFilterer(
+                mapped_triples=dataset.training.mapped_triples
+            ),
+            num_negs_per_pos=params.num_negs_per_pos,
+            integrate=params.integrate,
         )
     case "typed":
-        params.negative_sampler = (
-            TypedNegativeSampler(
-                mapped_triples=dataset.training.mapped_triples,
-                filtered=True,
-                filterer=NullPythonSetFilterer(
-                    mapped_triples=dataset.training.mapped_triples
-                ),
-                num_negs_per_pos=params.num_negs_per_pos,
-                entity_classes_dict=dataset.entity_id_to_classes,
-                relation_domain_range_dict=dataset.relation_id_to_domain_range,
-                integrate = params.integrate
-            )
+        params.negative_sampler = TypedNegativeSampler(
+            mapped_triples=dataset.training.mapped_triples,
+            filtered=True,
+            filterer=NullPythonSetFilterer(
+                mapped_triples=dataset.training.mapped_triples
+            ),
+            num_negs_per_pos=params.num_negs_per_pos,
+            entity_classes_dict=dataset.entity_id_to_classes,
+            relation_domain_range_dict=dataset.relation_id_to_domain_range,
+            integrate=params.integrate,
         )
     case "relational":
         params.negative_sampler = RelationalNegativeSampler(
@@ -196,16 +191,18 @@ match params.negative_sampler_name:
             ),
             num_negs_per_pos=params.num_negs_per_pos,
             local_file=params.local_file,
-            integrate = params.integrate
+            integrate=params.integrate,
         )
 
 
 if params.compute_statistic:
-    val, dict = params.negative_sampler.average_pool_size(dataset.training.mapped_triples)
+    val, dict = params.negative_sampler.average_pool_size(
+        dataset.training.mapped_triples
+    )
 
     print(f"Average Pool Size{val}")
-    for k,v in dict.items():
-        print(k,v)
+    for k, v in dict.items():
+        print(k, v)
 
 
 print("Sample Predictions")

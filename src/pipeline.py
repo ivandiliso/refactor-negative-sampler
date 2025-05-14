@@ -63,7 +63,9 @@ parser.add_argument("--l2", type=float, required=True)
 parser.add_argument("--margin", type=int, required=True)
 
 parser.add_argument("--negatives", type=int, choices=[2, 10, 40, 100], required=True)
-parser.add_argument("--dataset", type=str, choices=["yago4-20", "db50k", "fb15k", "wn18"])
+parser.add_argument(
+    "--dataset", type=str, choices=["yago4-20", "db50k", "fb15k", "wn18"]
+)
 
 args = parser.parse_args()
 
@@ -144,7 +146,9 @@ match params.dataset_name:
         )
     case "wn18":
         dataset = OnMemoryDataset(
-            data_path=params.data_path, load_domain_range=False, load_entity_classes=False
+            data_path=params.data_path,
+            load_domain_range=False,
+            load_entity_classes=False,
         )
     case "db50k":
         dataset = OnMemoryDataset(
@@ -152,7 +156,9 @@ match params.dataset_name:
         )
     case "fb15k":
         dataset = OnMemoryDataset(
-            data_path=params.data_path, load_domain_range=False, load_entity_classes=False
+            data_path=params.data_path,
+            load_domain_range=False,
+            load_entity_classes=False,
         )
 
 print("[Data Loader] Dataset Information")
@@ -220,7 +226,7 @@ match params.negative_sampler_name:
             filtered=True,
             filterer="nullpythonset",
             num_negs_per_pos=params.num_neg_per_pos,
-            local_file=params.data_path / "relational_cached.bin"
+            local_file=params.data_path / "relational_cached.bin",
         )
 
 print(f"[Negative Sampler] {params.negative_sampler}")
@@ -233,34 +239,27 @@ print(f"[Negative Sampler] {params.negative_sampler}")
 match params.model_name:
     case "transe":
         params.model = TransE(
-            triples_factory = dataset.training,
+            triples_factory=dataset.training,
             embedding_dim=100,
             regularizer=LpRegularizer,
             regularizer_kwargs=dict(
-                p = params.regularizer_p,
-                weight = params.regularizer_weight
+                p=params.regularizer_p, weight=params.regularizer_weight
             ),
         )
     case "transh":
         params.model = TransH(
-            triples_factory = dataset.training,
+            triples_factory=dataset.training,
             embedding_dim=100,
             regularizer=LpRegularizer,
             regularizer_kwargs=dict(
-                p = params.regularizer_p,
-                weight = params.regularizer_weight
+                p=params.regularizer_p, weight=params.regularizer_weight
             ),
         )
     case "transr":
-        params.model = TransR(
-            triples_factory = dataset.training,
-            embedding_dim=100
-        )
+        params.model = TransR(triples_factory=dataset.training, embedding_dim=100)
 
 
-        
 print(f"[Embedding Model] {params.model}")
-
 
 
 # HPO Pipeline
@@ -268,37 +267,20 @@ print(f"[Embedding Model] {params.model}")
 
 
 pipeline_result = pipeline(
-
     training=dataset.training,
     testing=dataset.testing,
     validation=dataset.validation,
-
     model=params.model,
-
     negative_sampler=params.negative_sampler,
     negative_sampler_kwargs=params.negative_sampler_kwargs,
-
     training_loop="sLCWA",
-    training_kwargs=dict(
-        num_epochs=50,
-        batch_size=1000
-    ),
-
+    training_kwargs=dict(num_epochs=50, batch_size=1000),
     loss=MarginRankingLoss,
-    loss_kwargs=dict(
-        margin=params.margin
-    ),
-
+    loss_kwargs=dict(margin=params.margin),
     optimizer=Adam,
-    optimizer_kwargs=dict(
-        lr=params.learning_rate
-    ),
-
+    optimizer_kwargs=dict(lr=params.learning_rate),
     device=params.device,
-
-    evaluation_kwargs=dict(
-        batch_size = 500
-    )
+    evaluation_kwargs=dict(batch_size=500),
 )
 
 
@@ -306,7 +288,5 @@ pipeline_result = pipeline(
 ################################################################################
 
 pipeline_result.save_to_directory(
-    directory =params.experiment_path,
-    save_metadata = True,
-    save_training = False
-    )
+    directory=params.experiment_path, save_metadata=True, save_training=False
+)

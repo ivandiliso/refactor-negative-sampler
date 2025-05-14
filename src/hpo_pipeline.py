@@ -59,7 +59,9 @@ parser.add_argument(
     required=True,
 )
 parser.add_argument("--negatives", type=int, choices=[2, 10, 40, 100], required=True)
-parser.add_argument("--dataset", type=str, choices=["yago4-20", "db50k", "fb15k", "wn18"])
+parser.add_argument(
+    "--dataset", type=str, choices=["yago4-20", "db50k", "fb15k", "wn18"]
+)
 
 args = parser.parse_args()
 
@@ -143,7 +145,9 @@ match params.dataset_name:
         )
     case "wn18":
         dataset = OnMemoryDataset(
-            data_path=params.data_path, load_domain_range=False, load_entity_classes=False
+            data_path=params.data_path,
+            load_domain_range=False,
+            load_entity_classes=False,
         )
     case "db50k":
         dataset = OnMemoryDataset(
@@ -151,7 +155,9 @@ match params.dataset_name:
         )
     case "fb15k":
         dataset = OnMemoryDataset(
-            data_path=params.data_path, load_domain_range=False, load_entity_classes=False
+            data_path=params.data_path,
+            load_domain_range=False,
+            load_entity_classes=False,
         )
 
 print("[Data Loader] Dataset Information")
@@ -219,7 +225,7 @@ match params.negative_sampler_name:
             filtered=True,
             filterer="nullpythonset",
             num_negs_per_pos=params.num_neg_per_pos,
-            local_file=params.data_path / "relational_cached.bin"
+            local_file=params.data_path / "relational_cached.bin",
         )
 
 print(f"[Negative Sampler] {params.negative_sampler}")
@@ -234,9 +240,7 @@ match params.model_name:
         params.model = TransE
 
 
-        
 print(f"[Embedding Model] {params.model}")
-
 
 
 # HPO Pipeline
@@ -244,52 +248,30 @@ print(f"[Embedding Model] {params.model}")
 
 
 hpo_pipeline_result = hpo_pipeline(
-
-    timeout = params.hpo_timeout * 60 * 60,
-
+    timeout=params.hpo_timeout * 60 * 60,
     training=dataset.training,
     testing=dataset.testing,
     validation=dataset.validation,
-
     model=params.model,
     model_kwargs=dict(
         embedding_dim=params.embedding_dim,
-        random_seed = params.random_seed,
-        scoring_fct_norm=params.scoring_fct_norm
+        random_seed=params.random_seed,
+        scoring_fct_norm=params.scoring_fct_norm,
     ),
-
     negative_sampler=params.negative_sampler,
     negative_sampler_kwargs=params.negative_sampler_kwargs,
-
     training_loop="sLCWA",
-    training_kwargs=dict(
-        num_epochs=params.epochs,
-        batch_size=1000
-    ),
-
+    training_kwargs=dict(num_epochs=params.epochs, batch_size=1000),
     loss=MarginRankingLoss,
-    loss_kwargs_ranges=dict(
-        margin=params.hpo_margin
-    ),
-
+    loss_kwargs_ranges=dict(margin=params.hpo_margin),
     regularizer=LpRegularizer,
-    regularizer_kwargs=dict(
-        p = params.regularizer_p
-    ),
-    regularizer_kwargs_ranges=dict(
-        weight = params.hpo_regularizer_weight
-    ),
-
+    regularizer_kwargs=dict(p=params.regularizer_p),
+    regularizer_kwargs_ranges=dict(weight=params.hpo_regularizer_weight),
     optimizer=Adam,
-    optimizer_kwargs_ranges=dict(
-        lr=params.hpo_learning_rate
-    ),
+    optimizer_kwargs_ranges=dict(lr=params.hpo_learning_rate),
     device=params.device,
-
-    evaluation_kwargs=dict(
-        batch_size = 500
-    ),
-    save_model_directory = params.experiment_path / "models_checkpoints"
+    evaluation_kwargs=dict(batch_size=500),
+    save_model_directory=params.experiment_path / "models_checkpoints",
 )
 
 
@@ -297,10 +279,10 @@ hpo_pipeline_result = hpo_pipeline(
 ################################################################################
 
 out_dict = {
-    "hpo_optimized_params" : hpo_pipeline_result.study.best_params,
-    "best_trial_number" : hpo_pipeline_result.study.best_trial.number,
-    "model" : str(params.model),
-    "negative_sampler" : params.negative_sampler,
+    "hpo_optimized_params": hpo_pipeline_result.study.best_params,
+    "best_trial_number": hpo_pipeline_result.study.best_trial.number,
+    "model": str(params.model),
+    "negative_sampler": params.negative_sampler,
     "epochs": params.epochs,
     "embedding_dim": params.embedding_dim,
     "relation_dim": params.relation_dim,
@@ -310,15 +292,19 @@ out_dict = {
     "hpo_timeout": params.hpo_timeout,
     "hpo_strategy": params.hpo_strategy,
     "loss": params.loss,
-    "hpo_margin": {k:v for k,v in params.hpo_margin.items()} ,
-    "hpo_learning_rate":{k:v for k,v in params.hpo_learning_rate.items() if k != "type"},
-    "hpo_regularizer_weight":{k:v for k,v in params.hpo_regularizer_weight.items() if k != "type"},
+    "hpo_margin": {k: v for k, v in params.hpo_margin.items()},
+    "hpo_learning_rate": {
+        k: v for k, v in params.hpo_learning_rate.items() if k != "type"
+    },
+    "hpo_regularizer_weight": {
+        k: v for k, v in params.hpo_regularizer_weight.items() if k != "type"
+    },
     "random_seed": params.random_seed,
     "num_neg_per_pos": params.num_neg_per_pos,
     "dataset": params.dataset,
-    "training_loop" : "sLCWA",
-    "pykeen_version" : pykeen.version.get_version(),
-    "python_verison" : sys.version
+    "training_loop": "sLCWA",
+    "pykeen_version": pykeen.version.get_version(),
+    "python_verison": sys.version,
 }
 
 with open(params.experiment_path / "best_trial_params.json", "w") as f:
