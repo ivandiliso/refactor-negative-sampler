@@ -45,6 +45,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         filtered=False,
         filterer=None,
         filterer_kwargs=None,
+        integrate=False,
         **kwargs,
     ):
         super().__init__(
@@ -57,6 +58,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             filterer_kwargs=filterer_kwargs,
         )
 
+        self.integrate = integrate
         self.mapped_triples = mapped_triples
         self.subset = self._generate_subset(mapped_triples, **kwargs)
 
@@ -152,7 +154,10 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             int(triple[HEAD]), int(triple[REL]), int(triple[TAIL]), target
         )
 
-        negatives = negative_pool[
+        if negative_pool[0] == -1:
+            negatives = torch.randint(0, self.num_entities, size=target_size)
+        else:
+            negative_pool[
             torch.randint(0, len(negative_pool), size=(target_size,))
         ]
 
