@@ -91,6 +91,7 @@ print(
 sampling_model = torch.load(
     Path.cwd() / "model" / "sampling" / "transe_yago420" / "trained_model.pkl",
     weights_only=False,
+    map_location=torch.device("cpu")
 )
 
 sampling_model = sampling_model.to(torch.device("cpu"))
@@ -120,12 +121,14 @@ print(sampling_model)
 params = SimpleNamespace()
 
 
-params.negative_sampler_name = "corrupt"
+params.negative_sampler_name = "relational"
 params.local_file = Path().cwd() / (params.negative_sampler_name + dataset_name + ".bin")
 params.num_negs_per_pos = 100
 params.sample = True
 params.sample_size = 500
 params.permutate_triples = True
+params.integrate = True
+params.compute_statistic = True
 
 
 if params.permutate_triples:
@@ -144,6 +147,7 @@ match params.negative_sampler_name:
                     mapped_triples=dataset.training.mapped_triples
                 ),
                 num_negs_per_pos=params.num_negs_per_pos,
+
             )
         )
     case "bernoulli":
@@ -166,6 +170,7 @@ match params.negative_sampler_name:
                     mapped_triples=dataset.training.mapped_triples
                 ),
                 num_negs_per_pos=params.num_negs_per_pos,
+                integrate = params.integrate
             )
         )
     case "typed":
@@ -179,6 +184,7 @@ match params.negative_sampler_name:
                 num_negs_per_pos=params.num_negs_per_pos,
                 entity_classes_dict=dataset.entity_id_to_classes,
                 relation_domain_range_dict=dataset.relation_id_to_domain_range,
+                integrate = params.integrate
             )
         )
     case "relational":
@@ -189,16 +195,17 @@ match params.negative_sampler_name:
                 mapped_triples=dataset.training.mapped_triples
             ),
             num_negs_per_pos=params.num_negs_per_pos,
-            local_file=params.local_file
+            local_file=params.local_file,
+            integrate = params.integrate
         )
 
 
+if params.compute_statistic:
+    val, dict = params.negative_sampler.average_pool_size(dataset.training.mapped_triples)
 
-val, dict = params.negative_sampler.average_pool_size(dataset.training.mapped_triples)
-
-print(f"Average Pool Size{val}")
-for k,v in dict.items():
-    print(k,v)
+    print(f"Average Pool Size{val}")
+    for k,v in dict.items():
+        print(k,v)
 
 
 print("Sample Predictions")

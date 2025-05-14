@@ -155,9 +155,9 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         )
 
         if negative_pool[0] == -1:
-            negatives = torch.randint(0, self.num_entities, size=target_size)
+            negatives = torch.randint(0, self.num_entities, size=(target_size,))
         else:
-            negative_pool[
+            negatives = negative_pool[
             torch.randint(0, len(negative_pool), size=(target_size,))
         ]
 
@@ -216,20 +216,24 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         less_dict = {0: 0, 2: 0, 10: 0, 40: 0, 100: 0}
         total_len = len(head_relation) + len(tail_relation)
 
-        print(total_len)
 
         print("[SubsetNegativeSampler] Computing <h,r,*> Negative Pools")
         for comb in tqdm.tqdm(head_relation):
             e = int(comb[0])
             r = int(comb[1])
             negative_pool = self._strategy_negative_pool(e, r, -1, "tail")
+           
             if -1 in negative_pool:
-                pool_size = 0
+                if self.integrate:
+                    pool_size = self.num_entities - len(self._get_positive_pool(e, r, "tail"))
+                else:
+                    pool_size = 0
             else:
                 positive_pool = self._get_positive_pool(e, r, "tail")
                 pool_size = int(
                     torch.isin(negative_pool, positive_pool, invert=True).sum()
                 )
+            
             total += pool_size
             for k in list(less_dict.keys()):
                 if pool_size <= k:
@@ -241,7 +245,10 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
             r = int(comb[1])
             negative_pool = self._strategy_negative_pool(-1, r, e, "head")
             if -1 in negative_pool:
-                pool_size = 0
+                if self.integrate:
+                    pool_size = self.num_entities - len(self._get_positive_pool(e, r, "head"))
+                else:
+                    pool_size = 0
             else:
                 positive_pool = self._get_positive_pool(e, r, "head")
                 pool_size = int(
