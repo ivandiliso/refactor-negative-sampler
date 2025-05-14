@@ -1,4 +1,5 @@
-data/
+data/**
+!data/*.zip
 experiments/*/models_checkpoints/
 experiments/*/models_checkpoints/**
 nn_save.bin
