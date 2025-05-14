@@ -49,7 +49,23 @@ params = SimpleNamespace()
 
 parser = argparse.ArgumentParser("Experiments Configurations")
 parser.add_argument(
-    "--model", type=str, choices=["transe", "transh", "transr"], required=True
+    "--model",
+    type=str,
+    choices=[
+        "transe",
+        "transh",
+        "transr",
+        "transd",
+        "distmult",
+        "rescal",
+        "rotate",
+        "hole",
+        "quate",
+        "boxe",
+        "complex",
+        "simple",
+    ],
+    required=True,
 )
 parser.add_argument(
     "--sampler",
@@ -238,25 +254,103 @@ print(f"[Negative Sampler] {params.negative_sampler}")
 
 match params.model_name:
     case "transe":
-        params.model = TransE(
-            triples_factory=dataset.training,
-            embedding_dim=100,
+        params.model = pykeen.models.TransE
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
             regularizer=LpRegularizer,
             regularizer_kwargs=dict(
                 p=params.regularizer_p, weight=params.regularizer_weight
             ),
         )
     case "transh":
-        params.model = TransH(
-            triples_factory=dataset.training,
-            embedding_dim=100,
+        params.model = pykeen.models.TransH
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
             regularizer=LpRegularizer,
             regularizer_kwargs=dict(
                 p=params.regularizer_p, weight=params.regularizer_weight
             ),
         )
     case "transr":
-        params.model = TransR(triples_factory=dataset.training, embedding_dim=100)
+        params.model = pykeen.models.TransR
+        params.model_kwargs = dict(embedding_dim=params.embedding_dim)
+
+    case "transd":
+        params.model = pykeen.models.TransD
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+            regularizer=LpRegularizer,
+            regularizer_kwargs=dict(
+                p=params.regularizer_p, weight=params.regularizer_weight
+            ),
+        )
+
+    case "rescal":
+        params.model = pykeen.models.RESCAL
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+            regularizer=LpRegularizer,
+            regularizer_kwargs=dict(
+                p=params.regularizer_p, weight=params.regularizer_weight
+            ),
+        )
+
+    case "distmult":
+        params.model = pykeen.models.DistMult
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+            regularizer=LpRegularizer,
+            regularizer_kwargs=dict(
+                p=params.regularizer_p, weight=params.regularizer_weight
+            ),
+        )
+
+    case "hole":
+        params.model = pykeen.models.HolE
+        params.model_kwargs = dict(embedding_dim=params.embedding_dim)
+
+    case "rotate":
+        params.model = pykeen.models.RotatE
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+            regularizer=LpRegularizer,
+            regularizer_kwargs=dict(
+                p=params.regularizer_p, weight=params.regularizer_weight
+            ),
+        )
+
+    case "complex":
+        params.model = pykeen.models.ComplEx
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+            regularizer=LpRegularizer,
+            regularizer_kwargs=dict(
+                p=params.regularizer_p, weight=params.regularizer_weight
+            ),
+        )
+
+    case "boxe":
+        params.model = pykeen.models.BoxE
+        params.model_kwargs = dict(embedding_dim=params.embedding_dim)
+
+    case "quate":
+        params.model = pykeen.models.QuatE
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+            regularizer=LpRegularizer,
+            regularizer_kwargs=dict(
+                p=params.regularizer_p, weight=params.regularizer_weight
+            ),
+        )
+    case "simple":
+        params.model = pykeen.models.SimplE
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+            regularizer=LpRegularizer,
+            regularizer_kwargs=dict(
+                p=params.regularizer_p, weight=params.regularizer_weight
+            ),
+        )
 
 
 print(f"[Embedding Model] {params.model}")
@@ -271,6 +365,7 @@ pipeline_result = pipeline(
     testing=dataset.testing,
     validation=dataset.validation,
     model=params.model,
+    model_kwargs=params.model_kwargs,
     negative_sampler=params.negative_sampler,
     negative_sampler_kwargs=params.negative_sampler_kwargs,
     training_loop="sLCWA",

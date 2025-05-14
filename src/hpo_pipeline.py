@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pykeen
 import pykeen.models
+import pykeen.regularizers
 import torch
 from extension.dataset import OnMemoryDataset
 from extension.filtering import NullPythonSetFilterer
@@ -50,7 +51,23 @@ params = SimpleNamespace()
 
 parser = argparse.ArgumentParser("Experiments Configurations")
 parser.add_argument(
-    "--model", type=str, choices=["transe", "transh", "transr"], required=True
+    "--model",
+    type=str,
+    choices=[
+        "transe",
+        "transh",
+        "transr",
+        "transd",
+        "distmult",
+        "rescal",
+        "rotate",
+        "hole",
+        "quate",
+        "boxe",
+        "complex",
+        "simple",
+    ],
+    required=True,
 )
 parser.add_argument(
     "--sampler",
@@ -196,6 +213,7 @@ match params.negative_sampler_name:
             filterer="nullpythonset",
             num_negs_per_pos=params.num_neg_per_pos,
         )
+        params.regularizer = None
     case "bernoulli":
         params.negative_sampler = "bernoulli"
         params.negative_sampler_kwargs = dict(
@@ -237,7 +255,106 @@ print(f"[Negative Sampler] {params.negative_sampler}")
 
 match params.model_name:
     case "transe":
-        params.model = TransE
+        params.model = pykeen.models.TransE
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+        )
+        params.regularizer = "LpRegularizer"
+        params.regularizer_kwargs = dict(p=params.regularizer_p)
+        params.regularizer_kwargs_ranges = dict(weight=params.hpo_regularizer_weight)
+
+    case "transh":
+        params.model = pykeen.models.TransH
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+        )
+        params.regularizer = "LpRegularizer"
+        params.regularizer_kwargs = dict(p=params.regularizer_p)
+        params.regularizer_kwargs_ranges = dict(weight=params.hpo_regularizer_weight)
+
+    case "transr":
+        params.model = pykeen.models.TransR
+        params.model_kwargs = dict(embedding_dim=params.embedding_dim)
+        params.regularizer = None
+        params.regularizer_kwargs = dict()
+        params.regularizer_kwargs_ranges = dict()
+
+    case "transd":
+        params.model = pykeen.models.TransD
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+        )
+        params.regularizer = "LpRegularizer"
+        params.regularizer_kwargs = dict(p=params.regularizer_p)
+        params.regularizer_kwargs_ranges = dict(weight=params.hpo_regularizer_weight)
+
+    case "rescal":
+        params.model = pykeen.models.RESCAL
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+        )
+        params.regularizer = "LpRegularizer"
+        params.regularizer_kwargs = dict(p=params.regularizer_p)
+        params.regularizer_kwargs_ranges = dict(weight=params.hpo_regularizer_weight)
+
+    case "distmult":
+        params.model = pykeen.models.DistMult
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+        )
+        params.regularizer = "LpRegularizer"
+        params.regularizer_kwargs = dict(p=params.regularizer_p)
+        params.regularizer_kwargs_ranges = dict(weight=params.hpo_regularizer_weight)
+
+    case "hole":
+        params.model = pykeen.models.HolE
+        params.model_kwargs = dict(embedding_dim=params.embedding_dim)
+        params.regularizer = None
+        params.regularizer_kwargs = dict()
+        params.regularizer_kwargs_ranges = dict()
+
+    case "rotate":
+        params.model = pykeen.models.RotatE
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+        )
+        params.regularizer = "LpRegularizer"
+        params.regularizer_kwargs = dict(p=params.regularizer_p)
+        params.regularizer_kwargs_ranges = dict(weight=params.hpo_regularizer_weight)
+
+    case "complex":
+        params.model = pykeen.models.ComplEx
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+        )
+        params.regularizer = "LpRegularizer"
+        params.regularizer_kwargs = dict(p=params.regularizer_p)
+        params.regularizer_kwargs_ranges = dict(weight=params.hpo_regularizer_weight)
+
+    case "boxe":
+        params.model = pykeen.models.BoxE
+        params.model_kwargs = dict(embedding_dim=params.embedding_dim)
+        params.regularizer = None
+        params.regularizer_kwargs = dict()
+        params.regularizer_kwargs_ranges = dict()
+
+    case "quate":
+        params.model = pykeen.models.QuatE
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+        )
+        params.regularizer = "LpRegularizer"
+        params.regularizer_kwargs = dict(p=params.regularizer_p)
+        params.regularizer_kwargs_ranges = dict(weight=params.hpo_regularizer_weight)
+
+    case "simple":
+        params.model = pykeen.models.SimplE
+        params.model_kwargs = dict(
+            embedding_dim=params.embedding_dim,
+        )
+        params.regularizer = "LpRegularizer"
+        params.regularizer_kwargs = dict(p=params.regularizer_p)
+        params.regularizer_kwargs_ranges = dict(weight=params.hpo_regularizer_weight)
 
 
 print(f"[Embedding Model] {params.model}")
@@ -253,20 +370,16 @@ hpo_pipeline_result = hpo_pipeline(
     testing=dataset.testing,
     validation=dataset.validation,
     model=params.model,
-    model_kwargs=dict(
-        embedding_dim=params.embedding_dim,
-        random_seed=params.random_seed,
-        scoring_fct_norm=params.scoring_fct_norm,
-    ),
+    model_kwargs=params.model_kwargs,
     negative_sampler=params.negative_sampler,
     negative_sampler_kwargs=params.negative_sampler_kwargs,
     training_loop="sLCWA",
     training_kwargs=dict(num_epochs=params.epochs, batch_size=1000),
     loss=MarginRankingLoss,
     loss_kwargs_ranges=dict(margin=params.hpo_margin),
-    regularizer=LpRegularizer,
-    regularizer_kwargs=dict(p=params.regularizer_p),
-    regularizer_kwargs_ranges=dict(weight=params.hpo_regularizer_weight),
+    regularizer=params.regularizer,
+    regularizer_kwargs=params.regularizer_kwargs,
+    regularizer_kwargs_ranges=params.regularizer_kwargs_ranges,
     optimizer=Adam,
     optimizer_kwargs_ranges=dict(lr=params.hpo_learning_rate),
     device=params.device,
