@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "d'Amato"
+  given-names: "Claudia"
+  orcid: "https://orcid.org/0000−0002−3385−987X"
+- family-names: "Diliso"
+  given-names: "Ivan"
+  orcid: "https://orcid.org/0009-0007-2942-202X"
+- family-names: "Fanizzi"
+  given-names: "Nicola"
+  orcid: "https://orcid.org/0000−0001−5319−7933"
+- family-names: "Saeed"
+  given-names: "Zafar"
+  orcid: "https://orcid.org/0000-0002-1282-5478"
+title: "NegativeSamplerExtension"
+version: 0.0.0.1
+doi: 10.5281/zenodo.15413075
+date-released: 2025-05-14
+url: https://github.com/ivandiliso/refactor-negative-sampler
