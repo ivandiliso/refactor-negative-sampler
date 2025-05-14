@@ -1,13 +1,13 @@
-# [PyKeen Refactor] Empirical Study of Negative Sampling
+# Enhancing PyKeen with Multiple Negative Sampling Solutions for Knowledge Graph Embedding Models
 
 ## Folder Structure
 
 ```
 📁 data             -> Dataset used during traning, validation and testing
-    📁 YAGO4-20
-    📁 FB15K
-    📁 YAGO4-20
-    📁 YAGO4-20 
+    📁 YAGO4-20     -> Download from https://drive.google.com/file/d/1XDwdvz23X4V0tmUI9ONvvBWS0W5yW3b-/view?usp=drive_link
+    📁 FB15K        -> Download from https://drive.google.com/file/d/11wQRJVez7xBCGeRgf5ioAia5rOPz2Nh-/view?usp=drive_link
+    📁 WN18         -> Download from https://drive.google.com/file/d/1kT5rUw1IQYG9i4Kew9cTm1QLt85tRfHN/view?usp=drive_link
+    📁 DB50K        -> Download from https://drive.google.com/file/d/1El3i5J2RClkliJcA_lVt5IcZzLP_UzPJ/view?usp=drive_link
 📁 doc              -> Documentations and logs
 📁 model
     📁 embedding    -> Embedding models checkpoints
@@ -21,60 +21,78 @@
     📁 temp         -> Temporary files 
 ```
 
-## Todos and Progress
+## Dataset Stucture
 
-### Data
+Each dataset is provided with the following folder structure
 
-Progress relative to **YAGO4-20** dataset
+```
+📁 dataset_name
+    📁 mapping      
+        📄 entity_to_id.json    -> Dictionary mapping entity names (string) to IDs (integer)
+        📄 relation_to_id.json  -> Dictionary mapping relation names (string) to IDs (integer)
+    📁 metadata
+        📄 entity_classes.json          -> Dictionary mapping entity names (string) to classes (list of strings)
+        📄 relation_domain_range.json   -> Dictionary mapping relation names (string) to domain  and range classes (string)
+    📁 owl          -> Additional schema-level information in OWL format
+    📄 train.txt    -> Training Split Triples in TSV format (using string names)
+    📄 test.txt     -> Testing Split Triples in TSV format (using string names)
+    📄 valid.txt    -> Validation Split Triples in TSV format (using string names)
+```
 
-- ![](https://geps.dev/progress/100) Custom Dataset
-- ![](https://geps.dev/progress/100) Domain Range Metadata
-- ![](https://geps.dev/progress/100) Class Memebership Metadata
-- ![](https://geps.dev/progress/0) Reasoned Metadata
+## Extension Structure
 
-### Negative Samplers
+```
+📁 src/extension
+    📄 constants.py    -> Constant variables used across the whole library
+    📄 dataset.py      -> Implementation of OnMemoryDataset
+    📄 filtering.py    -> Implementation of NullPytonSetFilterer
+    📄 sampling.py     -> Implementation of SubsetNegativeSampler and all the specific sampling strategies
+    📄 utils.py        -> Utility functions
 
-- ![](https://geps.dev/progress/100) Random (Already Available in PyKeen)
-- ![](https://geps.dev/progress/100) Bernoulli (Already Available in PyKeen)
-- ![](https://geps.dev/progress/90) Corrupt (Called PositiveInstance in our own work)
-- ![](https://geps.dev/progress/90) Typed
-- ![](https://geps.dev/progress/90) Relational
-- ![](https://geps.dev/progress/90) NearestNeighbour 
-- ![](https://geps.dev/progress/90) NearMiss (Called Adversarial in our own work)
+```
 
-#### Relational 
+## Instructions
 
-Uses temporary cached subset file for more optimized execution of negative samples search. The main corrupting function uses LRU caching for optimizing the 
-retrieval of negatives pools.
+1. Download the datasets from the provided links, put them in the data folder in the main directory
+2. Install the dependencies found in the requirements.txt file
+3. Manually run the example python files, or use one of the provided scripts in the scripts folder
 
-#### NearestNeighbour and NearMiss
+The library is completely integrated in the PyKEEN ecosystem, if you need a boostrap on using the library on the fly, just 
+follow this guide, three example file can be used to run in order a hpo pipeline, a normal pipeline, and the negative sampler
+evaluation. If you want to directly run an example configuration, you can find 
 
-Missing information in the original paper on the hyperparameters of RESCAL model, I think, reading the paper, they used  the whole dataset for pretraining the model, using
-the validation to perform hyperparameter optimization. They only information they provide is:
-- On FB15K they use RESCAL pretrained with Typed Negative Sampler with 100 negatives for positive
-- On WN18 they use RESCAL pretrained with Corrupt Negative Sampler with 100 negatives for positive
+#### hpo_pipeline.py
+Run a hyperparameter optimization pipeline using the chosen model, can be run using CLI arguments:
 
-Need to take a decision on how to move on on the parameters, the code will be written so that the NegativeSampler Function exepect to receive a pretrained 
-embedding model class (from PyKeen)
+```bash
+python src/hpo_pipeline.py 
+    --dataset dataset_name 
+    --model model_name 
+    --sampler sampler_name 
+    --negatives number_negatives
+```
+
+#### pipeline.py
+Run a pipeline using the chosen model and static defined parameters, can be run using CLI arguments:
+
+```bash
+python src/hpo_pipeline.py 
+    --dataset dataset_name 
+    --model model_name 
+    --sampler sampler_name 
+    --negatives number_negatives 
+    --l2 regularizer_weight 
+    --lr learning_rate 
+    --margin loss_margin
+```
+
+#### negative_evaluation.py
+
+Example code on how to compute the negative sampler statistic for a specific dataset
 
 
 
-### Training 
-
-- ![](https://geps.dev/progress/100) Hyperparameter Optimization
-- ![](https://geps.dev/progress/100) Training Loop
-- ![](https://geps.dev/progress/0) Evaluation on Testing Loop
 
 
-
-
-## Dataset, Preprocessing and Reasoning
-
-### YAGO4-20
-
-The data is taken from [KelpiePP](https://github.com/rbarile17/kelpiePP) (Barile et al.) additional information on domain and range proprieties is taken from YAGO based dataset from [Sem@K](https://github.com/nicolas-hbt/benchmark-sematk) (Hubert et al.)
-
-- The class membership is taken from the `reasoned/entities.csv` file. 
-- Missing data are reported as `"None"`
 
 

@@ -196,20 +196,18 @@ match params.negative_sampler_name:
 
 val, dict = params.negative_sampler.average_pool_size(dataset.training.mapped_triples)
 
-print(val)
+print(f"Average Pool Size{val}")
 for k,v in dict.items():
     print(k,v)
 
 
-
-
+print("Sample Predictions")
 if params.sample:
     log = SimpleLogger()
 
     log.start()
     negatives = params.negative_sampler.sample(eval_triples)
     log.end()
-
 
     print(negatives)
     print(negatives[1].shape)

@@ -1,6 +1,6 @@
 """
 Author: Ivan Diliso
-Description: Experimentations with HPO Pipeline
+Description: Experimentations with Pipeline
 """
 
 import gc
