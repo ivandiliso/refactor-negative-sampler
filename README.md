@@ -4,10 +4,10 @@
 
 ```
 📁 data             -> Dataset used during traning, validation and testing
-    📁 YAGO4-20     -> Download from https://drive.google.com/file/d/1XDwdvz23X4V0tmUI9ONvvBWS0W5yW3b-/view?usp=drive_link
-    📁 FB15K        -> Download from https://drive.google.com/file/d/11wQRJVez7xBCGeRgf5ioAia5rOPz2Nh-/view?usp=drive_link
-    📁 WN18         -> Download from https://drive.google.com/file/d/1kT5rUw1IQYG9i4Kew9cTm1QLt85tRfHN/view?usp=drive_link
-    📁 DB50K        -> Download from https://drive.google.com/file/d/1El3i5J2RClkliJcA_lVt5IcZzLP_UzPJ/view?usp=drive_link
+    📁 YAGO4-20     
+    📁 FB15K        
+    📁 WN18        
+    📁 DB50K        
 📁 doc              -> Documentations and logs
 📁 cached           -> Cached Negative Sampler subsets for faster computation
 📁 model
