@@ -21,6 +21,7 @@ from extension.sampling import (
     TypedNegativeSampler,
     NearestNeighbourNegativeSampler,
     NearMissNegativeSampler,
+    ClassesNegativeSampler
 )
 
 from pykeen.sampling import BernoulliNegativeSampler, BasicNegativeSampler
@@ -57,7 +58,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 # Initial Global Variables Configuration
 ################################################################################
-dataset_name = "WN18"
+dataset_name = "FB15K"
 config = {"home_path": Path().cwd(), "dataset_name": dataset_name}
 config["data_path"] = config["home_path"] / "data" / config["dataset_name"]
 
@@ -65,7 +66,7 @@ config["data_path"] = config["home_path"] / "data" / config["dataset_name"]
 # Dataset Loading
 ################################################################################
 dataset = OnMemoryDataset(
-    data_path=config["data_path"], load_domain_range=False, load_entity_classes=False
+    data_path=config["data_path"], load_domain_range=False, load_entity_classes=True
 )
 
 pretty_print("t", "Dataset Information")
@@ -121,7 +122,7 @@ print(sampling_model)
 params = SimpleNamespace()
 
 
-params.negative_sampler_name = "relational"
+params.negative_sampler_name = "classes"
 params.local_file = Path().cwd() / "cached" / (
     params.negative_sampler_name + dataset_name + ".bin"
 )
@@ -129,8 +130,8 @@ params.num_negs_per_pos = 2
 params.sample = True
 params.sample_size = 5
 params.permutate_triples = True
-params.integrate = True
-params.compute_statistic = False
+params.integrate = False
+params.compute_statistic = True
 
 
 if params.permutate_triples:
@@ -193,7 +194,17 @@ match params.negative_sampler_name:
             local_file=params.local_file,
             integrate=params.integrate,
         )
-
+    case "classes":
+        params.negative_sampler = ClassesNegativeSampler(
+            mapped_triples=dataset.training.mapped_triples,
+            filtered=True,
+            filterer=NullPythonSetFilterer(
+                mapped_triples=dataset.training.mapped_triples
+            ),
+            num_negs_per_pos=params.num_negs_per_pos,
+            entity_classes_dict=dataset.entity_id_to_classes,
+            integrate=params.integrate,
+        )
 
 if params.compute_statistic:
     val, dict = params.negative_sampler.average_pool_size(

@@ -387,6 +387,119 @@ class TypedNegativeSampler(SubSetNegativeSampler):
         return classes_dict
 
 
+class ClassesNegativeSampler(SubSetNegativeSampler):
+    """Type-Constrained Negative sampler derived from "Krompaß, D., Baier, S., Tresp, V.: Type-constrained representation
+    learning in knowledge graphs. In: The Semantic Web-ISWC 2015". Produces the subsed of available negatives using only
+    entities that appear as domain (for corruptiong head) and range (for corrupting tails) of a triple relation.
+    Uses the target corruption entity class for defining the set of negative entities, can be used when domain and range relations are not
+    available.
+    """
+
+    def __init__(self, *, entity_classes_dict, **kwargs):
+
+        object.__setattr__(self, "entity_classes", entity_classes_dict)
+
+        super().__init__(**kwargs)
+
+    @lru_cache(maxsize=1024)
+    def _strategy_negative_pool(self, h, r, t, target):
+
+        # Only for evaluation purposes, remove the [0]
+
+        if target == "head":
+            target_classes = self.entity_classes[h]
+        else:
+            target_classes = self.entity_classes[t]
+
+        if len(target_classes) > 0:
+            negative_pool = self.subset[target_classes[0]]
+            negative_pool = (
+                negative_pool if len(negative_pool) > 0 else torch.tensor([-1])
+            )
+        else:
+            negative_pool = torch.tensor([-1])
+        """
+        negative_pool = torch.tensor([])
+        for c in target_classes:
+            negative_pool = torch.cat([negative_pool, self.subset[c]])
+        negative_pool = torch.unique(negative_pool, dim=0)
+        """
+
+        return negative_pool
+
+    def _generate_subset(self, mapped_triples, **kwargs):
+
+        classes_dict = dict()
+
+        for e in range(self.num_entities):
+            classes = self.entity_classes.setdefault(e, [])
+            if len(classes) == 0:
+                classes = []
+
+        for e, classes in self.entity_classes.items():
+            for c in classes:
+                current_pool = classes_dict.setdefault(c, [])
+                current_pool.append(e)
+
+        for class_name, entity_ids in classes_dict.items():
+            classes_dict[class_name] = torch.unique(torch.tensor(entity_ids))
+
+        return classes_dict
+
+    def average_pool_size(self, check_triples):
+        return self._compute_poolsize_aggregate(check_triples)
+
+    def _compute_poolsize_aggregate(self, check_triples):
+
+        total = 0
+        less_dict = {0: 0, 2: 0, 10: 0, 40: 0, 100: 0}
+        total_len = len(check_triples)
+
+        print(total_len)
+
+        print("[SubsetNegativeSampler] Computing <h,r,*> Negative Pools")
+        for comb in tqdm.tqdm(check_triples):
+            h = int(comb[HEAD])
+            r = int(comb[REL])
+            t = int(comb[TAIL])
+            negative_pool = self._strategy_negative_pool(h, r, t, "tail")
+            if -1 in negative_pool:
+                pool_size = 0
+            else:
+                positive_pool = self._get_positive_pool(h, r, "tail")
+                pool_size = int(
+                    torch.isin(negative_pool, positive_pool, invert=True).sum()
+                )
+            total += pool_size
+            for k in list(less_dict.keys()):
+                if pool_size <= k:
+                    less_dict[k] += 1
+
+        print("[SubsetNegativeSampler] Computing <*,r,t> Negative Pools")
+        for comb in tqdm.tqdm(check_triples):
+            h = int(comb[HEAD])
+            r = int(comb[REL])
+            t = int(comb[TAIL])
+            negative_pool = self._strategy_negative_pool(h, r, t, "head")
+            if -1 in negative_pool:
+                pool_size = 0
+            else:
+                positive_pool = self._get_positive_pool(t, r, "head")
+                pool_size = int(
+                    torch.isin(negative_pool, positive_pool, invert=True).sum()
+                )
+
+            total += pool_size
+            for k in list(less_dict.keys()):
+                if pool_size < k:
+                    less_dict[k] += 1
+
+        for k, v in less_dict.items():
+            less_dict[k] = (v, float(v / total_len))
+
+        return int(total / total_len), less_dict
+
+
 class RelationalNegativeSampler(SubSetNegativeSampler):
     """Relational constrained Negative Sampler from "Kotnis, B., Nastase, V.: Analysis of the impact of negative
     sampling on link prediction in knowledge graphs".
