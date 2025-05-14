@@ -1,4 +1,5 @@
 # Enhancing PyKeen with Multiple Negative Sampling Solutions for Knowledge Graph Embedding Models
+[![DOI](https://zenodo.org/badge/971351696.svg)](https://doi.org/10.5281/zenodo.15413074)
 
 ## Folder Structure
 
