@@ -72,8 +72,19 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
     @abstractmethod
     @lru_cache(maxsize=1024, typed=False)
     def _strategy_negative_pool(
-        self, h, r, t, target
-    ) -> Tuple[torch.tensor, torch.tensor]:
+        self, h: int, r: int, t: int, target: str
+    ) -> torch.tensor:
+        """Compute the negative pool for a triple and the target for corruption
+
+        Args:
+            h (int): Head entity ID
+            r (int): Relation ID
+            t (int): Tail entity ID
+            target (str): "head" or "tail" corruption
+
+        Returns:
+            torch.tensor: Tensor with computed negative entities IDs
+        """
         raise NotImplementedError
 
     def corrupt_batch(self, positive_batch: MappedTriples) -> MappedTriples:
@@ -110,9 +121,6 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
                 num_tail_negatives = self.num_negs_per_pos - num_head_negatives
 
                 # Head Corruption
-
-
-
                 negative_batch[batch_start:batch_end][targets, HEAD] = self._choose_from_pools(
                     positive_batch[i], "head", num_head_negatives
                 )
@@ -129,7 +137,17 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
 
         return negative_batch.view(*batch_shape, self.num_negs_per_pos, 3)
 
-    def _choose_from_pools(self, triple, target, target_size) -> torch.tensor:
+    def _choose_from_pools(self, triple: torch.tensor, target: str, target_size: int) -> torch.tensor:
+        """Sample negatives from the negative pool
+
+        Args:
+            triple (torch.tensor): Triple for corruption
+            target (str): Target of corruption
+            target_size (int): Number of negatives to produce
+
+        Returns:
+            torch.tensor: Chosen negatives from the negative pool
+        """
         negative_pool = self._strategy_negative_pool(
             int(triple[HEAD]), int(triple[REL]), int(triple[TAIL]), target
         )
@@ -141,12 +159,20 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         return negatives
 
     @lru_cache(maxsize=1024, typed=False)
-    def _get_positive_pool(self, e, r, target):
+    def _get_positive_pool(self, e: int, r: int, target: str) -> torch.tensor:
         """Returns all the real negatives given an entity, a relation, and the taget for corruption.
         if target == "head" returns the full availabile negative entities for (*, rel, entity)
         if target == "tail" returns the full availabile negative entities for (entity, rel, *)
-        """
+        
+        Args:
+            e (int): Entity ID
+            r (int): Relation ID
+            target (str): Target of corruption
 
+        Returns:
+            torch.tensor: Positive istances IDs
+        """
+        
         e_position = TARGET_TO_INDEX[SWAP_TARGET[target]]
 
         positive_pool = self.mapped_triples[self.mapped_triples[:, e_position] == e]
@@ -156,13 +182,30 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
 
         return positive_pool
 
-    def average_pool_size(self, check_triples):
+    def average_pool_size(self, check_triples: MappedTriples) -> Tuple[int, dict]:
+        """Compute the average pool size for every h,r combination and r,t combination
+
+        Args:
+            check_triples (MappedTriples): Triples used for computating the pool size 
+
+        Returns:
+            Tuple[int, dict]: Average pool size, and dictionary with number of triples with less than X negative (from 2 to 100)
+        """
         head_relation = torch.unique(check_triples[:, [HEAD, REL]], dim=0)
         tail_relation = torch.unique(check_triples[:, [TAIL, REL]], dim=0)
 
         return self._compute_poolsize_aggregate(head_relation, tail_relation)
 
-    def _compute_poolsize_aggregate(self, head_relation, tail_relation):
+    def _compute_poolsize_aggregate(self, head_relation: torch.tensor, tail_relation: torch.tensor) -> Tuple[int, dict]:
+        """Compute the average pool size for every h,r combination and r,t combination, strategy specific implementation
+
+        Args:
+            head_relation (torch.tensor): Head, Relation tensor
+            tail_relation (torch.tensor): Tail, Relation tensor
+
+        Returns:
+            Tuple[int, dict]: Average pool size, and dictionary with number of triples with less than X negative (from 2 to 100)
+        """
 
         total = 0
         less_dict = {0: 0, 2: 0, 10: 0, 40: 0, 100: 0}

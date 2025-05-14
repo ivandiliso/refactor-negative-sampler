@@ -9,8 +9,8 @@ from pykeen.sampling.filtering import PythonSetFilterer
 
 
 class NullPythonSetFilterer(PythonSetFilterer):
-    """ Extensiion of Python Set based filtered that also check for manually inserted invalid negatives
-    Maps as invalid negatives of the form [-1,-1,-1]
+    """ Extensiion of Python Set based filterer that also check for manually inserted invalid negatives entities
+    with negative indices.
     """
     def __init__(self, mapped_triples):
         super().__init__(mapped_triples)

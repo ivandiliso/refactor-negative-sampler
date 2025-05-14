@@ -1,3 +1,8 @@
+"""
+Author: Ivan Diliso
+Description: Custom dataloader for metadata-enriched datases
+"""
+
 import pykeen
 import pykeen.datasets
 from pykeen.datasets.base import Dataset
@@ -29,8 +34,8 @@ class OnMemoryDataset(Dataset):
     - train.txt : Training triples in "h r t" format using RDF names
     - test.txt : Testing triples in "h r t" format using RDF names
     - valid.txt : Validation triples in "h r t" format using RDF names
-    - entity_to_id.json: Tab separated file for id to entity name mapping
-    - relation_to_id.json: Tab separeted file for id to relation name mapping
+    - entity_to_id.json: JSON file for entity name to ID mapping
+    - relation_to_id.json: JSON file for relation name to ID mapping
     - entities_classes.json : Additional metadata of class memebership for each entity, need to have format
 
     ```json
@@ -131,26 +136,3 @@ class OnMemoryDataset(Dataset):
             for k, v in data.items()
             if k in self.relation_to_id.keys()
         }
-
-
-class OnCloudDataset(OnMemoryDataset):
-    def __init__(self, data_path, dataset_name, load_entity_classes, load_domain_range, **kwargs):
-        match dataset_name:
-            case "yago4-20":
-                url = "https://drive.google.com/file/d/1XDwdvz23X4V0tmUI9ONvvBWS0W5yW3b-/view?usp=sharing"
-            case "wn18":
-                url = "https://drive.google.com/file/d/1kT5rUw1IQYG9i4Kew9cTm1QLt85tRfHN/view?usp=sharing"
-                load_domain_range = False
-                load_entity_classes = False
-            case "fb15k":
-                url = "https://drive.google.com/file/d/11wQRJVez7xBCGeRgf5ioAia5rOPz2Nh-/view?usp=sharing"
-                load_domain_range = False
-                load_entity_classes = False
-            case "db50k":
-                url = "https://drive.google.com/file/d/1El3i5J2RClkliJcA_lVt5IcZzLP_UzPJ/view?usp=sharing"
-
-        gdown.download(url, output= str(data_path / f"{dataset_name}.zip") , quiet=False,)
-        with zipfile.ZipFile(str(data_path / f"{dataset_name}.zip"), 'r') as zip_file:
-            zip_file.extractall(data_path)
-
-        super().__init__(data_path, load_entity_classes, load_domain_range, **kwargs)
