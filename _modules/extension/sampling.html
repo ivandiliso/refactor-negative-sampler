@@ -1,0 +1,1025 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>extension.sampling &mdash; PyKEEN Negative Sampling Extension 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PyKEEN Negative Sampling Extension
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../extension.html">PyKEEN Extension</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PyKEEN Negative Sampling Extension</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">extension.sampling</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for extension.sampling</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sys</span><span class="w"> </span><span class="kn">import</span> <span class="n">getsizeof</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tqdm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">extension.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimpleLogger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pykeen.sampling</span><span class="w"> </span><span class="kn">import</span> <span class="n">NegativeSampler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pykeen.triples</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoreTriplesFactory</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pykeen.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BoolTensor</span><span class="p">,</span> <span class="n">EntityMapping</span><span class="p">,</span> <span class="n">LongTensor</span><span class="p">,</span> <span class="n">MappedTriples</span><span class="p">,</span> <span class="n">Target</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">lru_cache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pykeen.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">TransE</span><span class="p">,</span> <span class="n">RESCAL</span><span class="p">,</span> <span class="n">ERModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">KDTree</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">extension.constants</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">HEAD</span><span class="p">,</span>
+    <span class="n">TAIL</span><span class="p">,</span>
+    <span class="n">REL</span><span class="p">,</span>
+    <span class="n">TARGET_TO_INDEX</span><span class="p">,</span>
+    <span class="n">INDEX_TO_TARGET</span><span class="p">,</span>
+    <span class="n">SWAP_TARGET</span><span class="p">,</span>
+    <span class="n">SWAP_TARGET_ID</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+
+
+<div class="viewcode-block" id="SubSetNegativeSampler">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.SubSetNegativeSampler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SubSetNegativeSampler</span><span class="p">(</span><span class="n">NegativeSampler</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract Class Handling static negative sampling, requires implementing</span>
+<span class="sd">    a method able to calculate the correct subset pool of negative for each</span>
+<span class="sd">    entity in the triples set</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">mapped_triples</span><span class="p">:</span> <span class="n">MappedTriples</span><span class="p">,</span>
+        <span class="n">num_entities</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_relations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_negs_per_pos</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">filtered</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">filterer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">filterer_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">integrate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Instantiate the base SubsetNegativeSampler class</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mapped_triples (MappedTriples): Triples used for computation of subsets and filtering</span>
+<span class="sd">            num_entities (int, optional): Number of entities. Defaults to None.</span>
+<span class="sd">            num_relations (int, optional): Number of relations. Defaults to None.</span>
+<span class="sd">            num_negs_per_pos (int, optional): Negative triples generated per positive ones. Defaults to None.</span>
+<span class="sd">            filtered (int, optional): Where to use a filterer. Defaults to False.</span>
+<span class="sd">            filterer (str, optional): Filterer to use is filtered is se to True. Defaults to None.</span>
+<span class="sd">            filterer_kwargs (dict, optional): Dictionary arguments for filterer . Defaults to None.</span>
+<span class="sd">            integrate (bool, optional): Integrate negative pool with random instances if they are below the required size. Defaults to False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">mapped_triples</span><span class="o">=</span><span class="n">mapped_triples</span><span class="p">,</span>
+            <span class="n">num_entities</span><span class="o">=</span><span class="n">num_entities</span><span class="p">,</span>
+            <span class="n">num_relations</span><span class="o">=</span><span class="n">num_relations</span><span class="p">,</span>
+            <span class="n">num_negs_per_pos</span><span class="o">=</span><span class="n">num_negs_per_pos</span><span class="p">,</span>
+            <span class="n">filtered</span><span class="o">=</span><span class="n">filtered</span><span class="p">,</span>
+            <span class="n">filterer</span><span class="o">=</span><span class="n">filterer</span><span class="p">,</span>
+            <span class="n">filterer_kwargs</span><span class="o">=</span><span class="n">filterer_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">integrate</span> <span class="o">=</span> <span class="n">integrate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mapped_triples</span> <span class="o">=</span> <span class="n">mapped_triples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_subset</span><span class="p">(</span><span class="n">mapped_triples</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SubSetNegativeSampler.generate_subset">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.SubSetNegativeSampler.generate_subset">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapped_triples</span><span class="p">:</span> <span class="n">MappedTriples</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generated the supporting subset to corrupt the triple</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mapped_triples (MappedTriples): Base triples to generate the subset</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="SubSetNegativeSampler.strategy_negative_pool">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.SubSetNegativeSampler.strategy_negative_pool">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">typed</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">strategy_negative_pool</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the negative pool for a triple and the target for corruption</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            h (int): Head entity ID</span>
+<span class="sd">            r (int): Relation ID</span>
+<span class="sd">            t (int): Tail entity ID</span>
+<span class="sd">            target (str): &quot;head&quot; or &quot;tail&quot; corruption</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.tensor: Tensor with computed negative entities IDs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="SubSetNegativeSampler.corrupt_batch">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.SubSetNegativeSampler.corrupt_batch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">corrupt_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">positive_batch</span><span class="p">:</span> <span class="n">MappedTriples</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MappedTriples</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subset batch corruptor. Uniform corruption between head and tail.</span>
+<span class="sd">        Corrupts each triple using the generated subset</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            positive_batch (MappedTriples): Batch of positive triples</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            MappedTriples: Batch of negative triples of size (positive_size * num_neg_per_pos, 3)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">batch_shape</span> <span class="o">=</span> <span class="n">positive_batch</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Clone Negative for corruption (cloned the number of negative per positive )</span>
+        <span class="n">negative_batch</span> <span class="o">=</span> <span class="n">positive_batch</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
+        <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">positive_batch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)):</span>
+
+            <span class="n">batch_start</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span>
+            <span class="n">batch_end</span> <span class="o">=</span> <span class="n">batch_start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">targets</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span><span class="p">,),</span> <span class="n">fill_value</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">targets</span><span class="p">[</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span><span class="p">)[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+                <span class="n">num_head_negatives</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="n">num_tail_negatives</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span> <span class="o">-</span> <span class="n">num_head_negatives</span>
+
+                <span class="c1"># Head Corruption</span>
+                <span class="n">negative_batch</span><span class="p">[</span><span class="n">batch_start</span><span class="p">:</span><span class="n">batch_end</span><span class="p">][</span><span class="n">targets</span><span class="p">,</span> <span class="n">HEAD</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_choose_from_pools</span><span class="p">(</span>
+                        <span class="n">positive_batch</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;head&quot;</span><span class="p">,</span> <span class="n">num_head_negatives</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Tail Corruption</span>
+                <span class="n">negative_batch</span><span class="p">[</span><span class="n">batch_start</span><span class="p">:</span><span class="n">batch_end</span><span class="p">][</span><span class="o">~</span><span class="n">targets</span><span class="p">,</span> <span class="n">TAIL</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_choose_from_pools</span><span class="p">(</span>
+                        <span class="n">positive_batch</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;tail&quot;</span><span class="p">,</span> <span class="n">num_tail_negatives</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="s2">&quot;head&quot;</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">])</span>
+                <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_choose_from_pools</span><span class="p">(</span><span class="n">positive_batch</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">target</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">negative_batch</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">TARGET_TO_INDEX</span><span class="p">[</span><span class="n">target</span><span class="p">]]</span> <span class="o">=</span> <span class="n">negative_pool</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">negative_batch</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="n">batch_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SubSetNegativeSampler.choose_from_pools">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.SubSetNegativeSampler.choose_from_pools">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">choose_from_pools</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">triple</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">target_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sample negatives from the negative pool</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            triple (torch.tensor): Triple for corruption</span>
+<span class="sd">            target (str): Target of corruption</span>
+<span class="sd">            target_size (int): Number of negatives to produce</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.tensor: Chosen negatives from the negative pool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_negative_pool</span><span class="p">(</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">HEAD</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">REL</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">TAIL</span><span class="p">]),</span> <span class="n">target</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrate</span><span class="p">:</span>
+            <span class="n">available_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">negative_pool</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># We cannot have a negative pool</span>
+                <span class="n">negatives</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_entities</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">target_size</span><span class="p">,))</span>
+            <span class="k">elif</span> <span class="n">available_len</span> <span class="o">&lt;</span> <span class="n">target_size</span><span class="p">:</span>
+                <span class="c1"># The negative pool does not reach the desired size</span>
+                <span class="n">negatives</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">negative_pool</span><span class="p">,</span>
+                        <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
+                            <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_entities</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">target_size</span> <span class="o">-</span> <span class="n">available_len</span><span class="p">,)</span>
+                        <span class="p">),</span>
+                    <span class="p">],</span>
+                    <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># The negative pool exists and has enough negatives</span>
+                <span class="n">negatives</span> <span class="o">=</span> <span class="n">negative_pool</span><span class="p">[</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">target_size</span><span class="p">,))</span>
+                <span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">negatives</span> <span class="o">=</span> <span class="n">negative_pool</span><span class="p">[</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">target_size</span><span class="p">,))</span>
+            <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">negatives</span></div>
+
+
+<div class="viewcode-block" id="SubSetNegativeSampler.get_positive_pool">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.SubSetNegativeSampler.get_positive_pool">[docs]</a>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">typed</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_positive_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns all the real negatives given an entity, a relation, and the taget for corruption.</span>
+<span class="sd">        if target == &quot;head&quot; returns the full availabile negative entities for (*, rel, entity)</span>
+<span class="sd">        if target == &quot;tail&quot; returns the full availabile negative entities for (entity, rel, *)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            e (int): Entity ID</span>
+<span class="sd">            r (int): Relation ID</span>
+<span class="sd">            target (str): Target of corruption</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.tensor: Positive istances IDs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">e_position</span> <span class="o">=</span> <span class="n">TARGET_TO_INDEX</span><span class="p">[</span><span class="n">SWAP_TARGET</span><span class="p">[</span><span class="n">target</span><span class="p">]]</span>
+
+        <span class="n">positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapped_triples</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mapped_triples</span><span class="p">[:,</span> <span class="n">e_position</span><span class="p">]</span> <span class="o">==</span> <span class="n">e</span><span class="p">]</span>
+        <span class="n">positive_pool</span> <span class="o">=</span> <span class="n">positive_pool</span><span class="p">[</span>
+            <span class="n">positive_pool</span><span class="p">[:,</span> <span class="n">REL</span><span class="p">]</span> <span class="o">==</span> <span class="n">r</span><span class="p">,</span> <span class="n">TARGET_TO_INDEX</span><span class="p">[</span><span class="n">target</span><span class="p">]</span>
+        <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">positive_pool</span></div>
+
+
+<div class="viewcode-block" id="SubSetNegativeSampler.average_pool_size">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.SubSetNegativeSampler.average_pool_size">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">average_pool_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_triples</span><span class="p">:</span> <span class="n">MappedTriples</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the average pool size for every h,r combination and r,t combination</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            check_triples (MappedTriples): Triples used for computating the pool size</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple[int, dict]: Average pool size, and dictionary with number of triples with less than X negative (from 2 to 100)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">head_relation</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">check_triples</span><span class="p">[:,</span> <span class="p">[</span><span class="n">HEAD</span><span class="p">,</span> <span class="n">REL</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">tail_relation</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">check_triples</span><span class="p">[:,</span> <span class="p">[</span><span class="n">TAIL</span><span class="p">,</span> <span class="n">REL</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_poolsize_aggregate</span><span class="p">(</span><span class="n">head_relation</span><span class="p">,</span> <span class="n">tail_relation</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SubSetNegativeSampler.compute_poolsize_aggregate">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.SubSetNegativeSampler.compute_poolsize_aggregate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_poolsize_aggregate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">head_relation</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> <span class="n">tail_relation</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the average pool size for every h,r combination and r,t combination, strategy specific implementation</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            head_relation (torch.tensor): Head, Relation tensor</span>
+<span class="sd">            tail_relation (torch.tensor): Tail, Relation tensor</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple[int, dict]: Average pool size, and dictionary with number of triples with less than X negative (from 2 to 100)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">less_dict</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">40</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+        <span class="n">total_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">head_relation</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">tail_relation</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[SubsetNegativeSampler] Computing &lt;h,r,*&gt; Negative Pools&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">comb</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="n">head_relation</span><span class="p">):</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy_negative_pool</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">in</span> <span class="n">negative_pool</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrate</span><span class="p">:</span>
+                    <span class="n">pool_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_entities</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">pool_size</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">)</span>
+                <span class="n">pool_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">,</span> <span class="n">positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="p">)</span>
+
+            <span class="n">total</span> <span class="o">+=</span> <span class="n">pool_size</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">less_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+                <span class="k">if</span> <span class="n">pool_size</span> <span class="o">&lt;=</span> <span class="n">k</span><span class="p">:</span>
+                    <span class="n">less_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[SubsetNegativeSampler] Computing &lt;*,r,t&gt; Negative Pools&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">comb</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="n">tail_relation</span><span class="p">):</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy_negative_pool</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">in</span> <span class="n">negative_pool</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrate</span><span class="p">:</span>
+                    <span class="n">pool_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_entities</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">pool_size</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">)</span>
+                <span class="n">pool_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">,</span> <span class="n">positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="p">)</span>
+
+            <span class="n">total</span> <span class="o">+=</span> <span class="n">pool_size</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">less_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+                <span class="k">if</span> <span class="n">pool_size</span> <span class="o">&lt;</span> <span class="n">k</span><span class="p">:</span>
+                    <span class="n">less_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">less_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">less_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span> <span class="o">/</span> <span class="n">total_len</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">total</span> <span class="o">/</span> <span class="n">total_len</span><span class="p">),</span> <span class="n">less_dict</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CorruptNegativeSampler">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.CorruptNegativeSampler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CorruptNegativeSampler</span><span class="p">(</span><span class="n">SubSetNegativeSampler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Negative sampler from &quot;Richard Socher, Danqi Chen, Christopher D Manning,</span>
+<span class="sd">    and Andrew Ng. 2013. Reasoning With Neural Tensor Networks for Knowledge</span>
+<span class="sd">    Base Completion.&quot; Corrupt head and tails based on the subset of entities seen</span>
+<span class="sd">    as head or tail of the specific relation</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CorruptNegativeSampler.generate_subset">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.CorruptNegativeSampler.generate_subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapped_triples</span><span class="p">):</span>
+        <span class="n">relations</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mapped_triples</span><span class="p">[:,</span> <span class="n">REL</span><span class="p">])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">subset</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">relations</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">mapped_triples</span><span class="p">[</span><span class="n">mapped_triples</span><span class="p">[:,</span> <span class="n">REL</span><span class="p">]</span> <span class="o">==</span> <span class="n">r</span><span class="p">]</span>
+            <span class="n">subset</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;head&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mask</span><span class="p">[:,</span> <span class="n">HEAD</span><span class="p">]),</span>
+                <span class="s2">&quot;tail&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mask</span><span class="p">[:,</span> <span class="n">TAIL</span><span class="p">]),</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">subset</span></div>
+
+
+<div class="viewcode-block" id="CorruptNegativeSampler.strategy_negative_pool">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.CorruptNegativeSampler.strategy_negative_pool">[docs]</a>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">strategy_negative_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="n">target</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="TypedNegativeSampler">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.TypedNegativeSampler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TypedNegativeSampler</span><span class="p">(</span><span class="n">SubSetNegativeSampler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type-Constrained Negative sampler from &quot;Krompaß, D., Baier, S., Tresp, V.: Type-constrained representation</span>
+<span class="sd">    learning in knowledge graphs. In: The Semantic Web-ISWC 2015&quot;. Produces the subsed of available negatives using only</span>
+<span class="sd">    entities that appear as domain (for corruptiong head) and range (for corrupting tails) of a triple relation.</span>
+<span class="sd">    Need additional information on triples, a dict with domain and range for each relation (mapped to IDS) and a</span>
+<span class="sd">    dictionary of class memebership for each entity (mapped to IDS)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">relation_domain_range_dict</span><span class="p">,</span> <span class="n">entity_classes_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;entity_classes&quot;</span><span class="p">,</span> <span class="n">entity_classes_dict</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;relation_domain_range&quot;</span><span class="p">,</span> <span class="n">relation_domain_range_dict</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;head&quot;</span><span class="p">:</span> <span class="s2">&quot;domain&quot;</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">:</span> <span class="s2">&quot;range&quot;</span><span class="p">}</span>
+
+<div class="viewcode-block" id="TypedNegativeSampler.strategy_negative_pool">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.TypedNegativeSampler.strategy_negative_pool">[docs]</a>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">strategy_negative_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+
+        <span class="n">target_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relation_domain_range</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="p">[</span><span class="n">target</span><span class="p">]]</span>
+
+        <span class="n">negative_pool</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="n">target_class</span><span class="p">]</span> <span class="k">if</span> <span class="n">target_class</span> <span class="o">!=</span> <span class="s2">&quot;None&quot;</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
+
+        <span class="n">negative_pool</span> <span class="o">=</span> <span class="n">negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">negative_pool</span></div>
+
+
+<div class="viewcode-block" id="TypedNegativeSampler.generate_subset">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.TypedNegativeSampler.generate_subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapped_triples</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="n">classes_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_relations</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">relation_domain_range</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">relation_domain_range</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;domain&quot;</span><span class="p">:</span> <span class="s2">&quot;None&quot;</span><span class="p">,</span> <span class="s2">&quot;range&quot;</span><span class="p">:</span> <span class="s2">&quot;None&quot;</span><span class="p">}</span>
+
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">domain_range_dict</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">relation_domain_range</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">classes_name</span> <span class="ow">in</span> <span class="n">domain_range_dict</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">classes_name</span> <span class="o">!=</span> <span class="s2">&quot;None&quot;</span><span class="p">:</span>
+                    <span class="n">classes_dict</span><span class="p">[</span><span class="n">classes_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">entity_id</span><span class="p">,</span> <span class="n">classes_names</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">entity_classes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">class_name</span> <span class="ow">in</span> <span class="n">classes_names</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">class_name</span> <span class="ow">in</span> <span class="n">classes_dict</span><span class="p">:</span>
+                    <span class="n">classes_dict</span><span class="p">[</span><span class="n">class_name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entity_id</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">class_name</span><span class="p">,</span> <span class="n">entity_ids</span> <span class="ow">in</span> <span class="n">classes_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">classes_dict</span><span class="p">[</span><span class="n">class_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">entity_ids</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">classes_dict</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ClassesNegativeSampler">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.ClassesNegativeSampler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ClassesNegativeSampler</span><span class="p">(</span><span class="n">SubSetNegativeSampler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type-Constrained Negative sampler derived from &quot;Krompaß, D., Baier, S., Tresp, V.: Type-constrained representation</span>
+<span class="sd">    learning in knowledge graphs. In: The Semantic Web-ISWC 2015&quot;. Produces the subsed of available negatives using only</span>
+<span class="sd">    entities that appear as domain (for corruptiong head) and range (for corrupting tails) of a triple relation.</span>
+<span class="sd">    Uses the target corruption entity class for defining the set of negative entities, can be used when domain and range relations are not</span>
+<span class="sd">    available.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">entity_classes_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;entity_classes&quot;</span><span class="p">,</span> <span class="n">entity_classes_dict</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ClassesNegativeSampler.strategy_negative_pool">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.ClassesNegativeSampler.strategy_negative_pool">[docs]</a>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">strategy_negative_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+
+        <span class="c1"># Only for evaluation purposes, remove the [0]</span>
+
+        <span class="k">if</span> <span class="n">target</span> <span class="o">==</span> <span class="s2">&quot;head&quot;</span><span class="p">:</span>
+            <span class="n">target_classes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entity_classes</span><span class="p">[</span><span class="n">h</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">target_classes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entity_classes</span><span class="p">[</span><span class="n">t</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_classes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="n">target_classes</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="n">negative_pool</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">negative_pool</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        negative_pool = torch.tensor([])</span>
+<span class="sd">        for c in target_classes:</span>
+<span class="sd">            negative_pool = torch.cat([negative_pool, self.subset[c]])</span>
+<span class="sd">        negative_pool = torch.unique(negative_pool, dim=0)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">negative_pool</span></div>
+
+
+<div class="viewcode-block" id="ClassesNegativeSampler.generate_subset">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.ClassesNegativeSampler.generate_subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapped_triples</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="n">classes_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_entities</span><span class="p">):</span>
+            <span class="n">classes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entity_classes</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">classes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">classes</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">e</span><span class="p">,</span> <span class="n">classes</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">entity_classes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">classes</span><span class="p">:</span>
+                <span class="n">current_pool</span> <span class="o">=</span> <span class="n">classes_dict</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="p">[])</span>
+                <span class="n">current_pool</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">class_name</span><span class="p">,</span> <span class="n">entity_ids</span> <span class="ow">in</span> <span class="n">classes_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">classes_dict</span><span class="p">[</span><span class="n">class_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">entity_ids</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">classes_dict</span></div>
+
+
+<div class="viewcode-block" id="ClassesNegativeSampler.average_pool_size">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.ClassesNegativeSampler.average_pool_size">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">average_pool_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_triples</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_poolsize_aggregate</span><span class="p">(</span><span class="n">check_triples</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ClassesNegativeSampler.compute_poolsize_aggregate">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.ClassesNegativeSampler.compute_poolsize_aggregate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_poolsize_aggregate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_triples</span><span class="p">):</span>
+
+        <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">less_dict</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">40</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+        <span class="n">total_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">check_triples</span><span class="p">)</span>
+
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[SubsetNegativeSampler] Computing &lt;h,r,*&gt; Negative Pools&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">comb</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="n">check_triples</span><span class="p">):</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="n">HEAD</span><span class="p">])</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="n">REL</span><span class="p">])</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="n">TAIL</span><span class="p">])</span>
+            <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy_negative_pool</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">in</span> <span class="n">negative_pool</span><span class="p">:</span>
+                <span class="n">pool_size</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">)</span>
+                <span class="n">pool_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">,</span> <span class="n">positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="p">)</span>
+            <span class="n">total</span> <span class="o">+=</span> <span class="n">pool_size</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">less_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+                <span class="k">if</span> <span class="n">pool_size</span> <span class="o">&lt;=</span> <span class="n">k</span><span class="p">:</span>
+                    <span class="n">less_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[SubsetNegativeSampler] Computing &lt;*,r,t&gt; Negative Pools&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">comb</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="n">check_triples</span><span class="p">):</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="n">HEAD</span><span class="p">])</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="n">REL</span><span class="p">])</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">comb</span><span class="p">[</span><span class="n">TAIL</span><span class="p">])</span>
+            <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy_negative_pool</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">in</span> <span class="n">negative_pool</span><span class="p">:</span>
+                <span class="n">pool_size</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">)</span>
+                <span class="n">pool_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">,</span> <span class="n">positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="p">)</span>
+
+            <span class="n">total</span> <span class="o">+=</span> <span class="n">pool_size</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">less_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+                <span class="k">if</span> <span class="n">pool_size</span> <span class="o">&lt;</span> <span class="n">k</span><span class="p">:</span>
+                    <span class="n">less_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">less_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">less_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span> <span class="o">/</span> <span class="n">total_len</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">total</span> <span class="o">/</span> <span class="n">total_len</span><span class="p">),</span> <span class="n">less_dict</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="RelationalNegativeSampler">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.RelationalNegativeSampler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RelationalNegativeSampler</span><span class="p">(</span><span class="n">SubSetNegativeSampler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Relational constrained Negative Sampler from &quot;Kotnis, B., Nastase, V.: Analysis of the impact of negative</span>
+<span class="sd">    sampling on link prediction in knowledge graphs&quot;.</span>
+<span class="sd">    If follows the assuption that each head,tail pair are connected</span>
+<span class="sd">    by only one relation, so, fixed the head (tail) we take all the tail (head) elements that appear in the triple with</span>
+<span class="sd">    a relation different from the original one.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="n">local_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;local_file&quot;</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">local_file</span><span class="p">))</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="RelationalNegativeSampler.generate_subset">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.RelationalNegativeSampler.generate_subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapped_triples</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="n">subset</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_file</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[RelationalNegativeSampler] Loading Pre-Computed Subset&quot;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_file</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">subset</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[RelationalNegativeSampler] Generating Subset&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">entity_id</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_entities</span><span class="p">)):</span>
+
+                <span class="n">entity_dict</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;head&quot;</span><span class="p">:</span> <span class="n">mapped_triples</span><span class="p">[</span><span class="n">mapped_triples</span><span class="p">[:,</span> <span class="n">HEAD</span><span class="p">]</span> <span class="o">==</span> <span class="n">entity_id</span><span class="p">],</span>
+                    <span class="s2">&quot;tail&quot;</span><span class="p">:</span> <span class="n">mapped_triples</span><span class="p">[</span><span class="n">mapped_triples</span><span class="p">[:,</span> <span class="n">TAIL</span><span class="p">]</span> <span class="o">==</span> <span class="n">entity_id</span><span class="p">],</span>
+                <span class="p">}</span>
+
+                <span class="n">subset</span><span class="p">[</span><span class="n">entity_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">entity_dict</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_file</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">subset</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[RelationalNegativeSampler] Saved Subset as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">local_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">subset</span></div>
+
+
+<div class="viewcode-block" id="RelationalNegativeSampler.strategy_negative_pool">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.RelationalNegativeSampler.strategy_negative_pool">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">strategy_negative_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+
+        <span class="c1"># If corrupting HEAD we take the TAIL entity to use as a pivot for the subset</span>
+        <span class="c1"># If corrupting TAIL we take the HEAD entity to use as a pivot for the subset d</span>
+
+        <span class="k">match</span> <span class="n">target</span><span class="p">:</span>
+            <span class="k">case</span> <span class="s2">&quot;head&quot;</span><span class="p">:</span>
+                <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_subset</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+            <span class="k">case</span> <span class="s2">&quot;tail&quot;</span><span class="p">:</span>
+                <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_subset</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+
+        <span class="n">negative_pool</span> <span class="o">=</span> <span class="n">negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">negative_pool</span></div>
+
+
+<div class="viewcode-block" id="RelationalNegativeSampler.get_subset">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.RelationalNegativeSampler.get_subset">[docs]</a>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">typed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+
+        <span class="n">pivot_entity_position</span> <span class="o">=</span> <span class="n">SWAP_TARGET</span><span class="p">[</span><span class="n">target</span><span class="p">]</span>
+        <span class="n">subset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="n">entity</span><span class="p">][</span><span class="n">pivot_entity_position</span><span class="p">]</span>
+        <span class="n">subset</span> <span class="o">=</span> <span class="n">subset</span><span class="p">[</span><span class="n">subset</span><span class="p">[:,</span> <span class="n">REL</span><span class="p">]</span> <span class="o">!=</span> <span class="n">rel</span><span class="p">,</span> <span class="n">TARGET_TO_INDEX</span><span class="p">[</span><span class="n">target</span><span class="p">]]</span>
+
+        <span class="k">return</span> <span class="n">subset</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NearestNeighbourNegativeSampler">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.NearestNeighbourNegativeSampler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NearestNeighbourNegativeSampler</span><span class="p">(</span><span class="n">SubSetNegativeSampler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Nearest Neighbour Negative Sampler from &quot;Kotnis, B., Nastase, V.: Analysis of the impact of negative</span>
+<span class="sd">    sampling on link prediction in knowledge graphs&quot;. Uses the entity embedding from a pretrained KGE input model to compute</span>
+<span class="sd">    the entity K-Nearest neighbours to be used as negatives.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="n">sampling_model</span><span class="p">:</span> <span class="n">ERModel</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_query_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inizialite the NearestNeighbourNegativeSampler</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sampling_model (ERModel, optional): Auxiliary pretrained model used to get entity embeddings. Defaults to None.</span>
+<span class="sd">            num_query_results (int, optional): The K to be used in K Nearest Neighbours search. Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;sampling_model&quot;</span><span class="p">,</span> <span class="n">sampling_model</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;num_query_results&quot;</span><span class="p">,</span> <span class="n">num_query_results</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapped_triples</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="n">subset</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">subset</span><span class="p">[</span><span class="s2">&quot;positive_triples&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapped_triples</span>
+        <span class="n">subset</span><span class="p">[</span><span class="s2">&quot;kdtree&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">KDTree</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sampling_model</span><span class="o">.</span><span class="n">entity_representations</span><span class="p">[</span><span class="mi">0</span><span class="p">]()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
+            <span class="n">leafsize</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_entities</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">subset</span><span class="p">[</span><span class="s2">&quot;entity_representations&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sampling_model</span><span class="o">.</span><span class="n">entity_representations</span><span class="p">[</span><span class="mi">0</span><span class="p">]()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">subset</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_strategy_negative_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+
+        <span class="n">head_positive_pool</span><span class="p">,</span> <span class="n">tail_positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_positive_pool</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+
+        <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_kdtree</span><span class="p">(</span><span class="n">h</span><span class="p">))</span>
+        <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_kdtree</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+
+        <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="n">head_negative_pool</span><span class="p">[</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">head_negative_pool</span><span class="p">,</span> <span class="n">head_positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="n">tail_negative_pool</span><span class="p">[</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">tail_negative_pool</span><span class="p">,</span> <span class="n">tail_positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">head_negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">head_negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">tail_negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tail_negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">head_negative_pool</span><span class="p">,</span> <span class="n">tail_negative_pool</span>
+
+<div class="viewcode-block" id="NearestNeighbourNegativeSampler.query_kdtree">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.NearestNeighbourNegativeSampler.query_kdtree">[docs]</a>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">typed</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">query_kdtree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">):</span>
+
+        <span class="n">search_entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;entity_representations&quot;</span><span class="p">][</span><span class="n">entity_id</span><span class="p">]</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;kdtree&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">search_entity</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_query_results</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">indices</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NearMissNegativeSampler">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.NearMissNegativeSampler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NearMissNegativeSampler</span><span class="p">(</span><span class="n">SubSetNegativeSampler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Auxiliary Model based Negative Sampler from &quot;Kotnis, B., &amp; Nastase, V. (2017). Analysis of the impact of</span>
+<span class="sd">    negative sampling on link prediction in knowledge graphs. arXiv preprint arXiv:1708.06816.&quot; Uses a pretrained model</span>
+<span class="sd">    on the same dataset to produce harder negatives. Given the predicted entity embedding for each triple, a Nearest</span>
+<span class="sd">    Neighbour algorithm is used to produce negatives that could be predicted as positive but in reality are negatives.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">sampling_model</span><span class="p">:</span> <span class="n">ERModel</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">prediction_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span><span class="n">ERModel</span><span class="p">,</span> <span class="n">MappedTriples</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_query_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inizialite the NearMissNegativeSampler</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sampling_model (ERModel, optional): Auxiliary pretrained model used to predict the target embedding. Defaults to None.</span>
+<span class="sd">            prediction_function (Callable[ [ERModel, MappedTriples, torch.tensor], torch.tensor ], optional): Function that produces the predicted entity in tensor format. Defaults to None.</span>
+<span class="sd">            num_query_results (int, optional): The K to be used in K Nearest Neighbours search. Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;sampling_model&quot;</span><span class="p">,</span> <span class="n">sampling_model</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;prediction_function&quot;</span><span class="p">,</span> <span class="n">prediction_function</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;num_query_results&quot;</span><span class="p">,</span> <span class="n">num_query_results</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="NearMissNegativeSampler.generate_subset">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.NearMissNegativeSampler.generate_subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapped_triples</span><span class="p">:</span> <span class="n">MappedTriples</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate the auxiliary subset to aid in triple corruption. Specifically</span>
+<span class="sd">        it creates the BallTree structure with the filtering triples (in Numpy format)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mapped_triples (MappedTriples): Triples used for filtering</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict: Dictionary with auxiliary data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">subset</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">subset</span><span class="p">[</span><span class="s2">&quot;kdtree&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">KDTree</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sampling_model</span><span class="o">.</span><span class="n">entity_representations</span><span class="p">[</span><span class="mi">0</span><span class="p">]()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
+            <span class="n">leafsize</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_entities</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">subset</span></div>
+
+
+<div class="viewcode-block" id="NearMissNegativeSampler.corrupt_batch">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.NearMissNegativeSampler.corrupt_batch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">corrupt_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">positive_batch</span><span class="p">:</span> <span class="n">MappedTriples</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MappedTriples</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subset batch corruptor. Uniform corruption between head and tail.</span>
+<span class="sd">        Corrupts each triple using the generated subset</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            positive_batch (MappedTriples): Batch of positive triples</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            MappedTriples: Batch of negative triples of size (positive_size * num_neg_per_pos, 3)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">batch_shape</span> <span class="o">=</span> <span class="n">positive_batch</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">log</span> <span class="o">=</span> <span class="n">SimpleLogger</span><span class="p">()</span>
+        <span class="n">batch_shape</span> <span class="o">=</span> <span class="n">positive_batch</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Entity embeddings from pretrained model</span>
+        <span class="c1"># Head prediction and tail predicions are tensor data</span>
+        <span class="c1">################################################################################</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">start</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;[NS </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_name</span><span class="p">()</span><span class="si">}</span><span class="s2">] Calculating HEAD prediction with </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_model</span><span class="o">.</span><span class="n">_get_name</span><span class="p">()</span><span class="si">}</span><span class="s2"> pretrained model&quot;</span>
+        <span class="p">)</span>
+        <span class="n">head_prediction</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prediction_function</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sampling_model</span><span class="p">,</span>
+                <span class="n">positive_batch</span><span class="p">,</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">positive_batch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),),</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">start</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;[NS </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_name</span><span class="p">()</span><span class="si">}</span><span class="s2">] Calculating TAIL prediction with </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_model</span><span class="o">.</span><span class="n">_get_name</span><span class="p">()</span><span class="si">}</span><span class="s2"> pretrained model&quot;</span>
+        <span class="p">)</span>
+        <span class="n">tail_prediction</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prediction_function</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sampling_model</span><span class="p">,</span>
+                <span class="n">positive_batch</span><span class="p">,</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">positive_batch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),),</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+        <span class="c1"># Head and Tail K-Nearest Neighbours from BallTree Query</span>
+        <span class="c1"># The head_query_negative_pool and tail_query_negative_pool</span>
+        <span class="c1"># contain the IDs of the entities</span>
+        <span class="c1">################################################################################</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[NS </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_name</span><span class="p">()</span><span class="si">}</span><span class="s2">] Querying KDTREE for HEAD predictions&quot;</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;kdtree&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">head_prediction</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_query_results</span>
+        <span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[NS </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_name</span><span class="p">()</span><span class="si">}</span><span class="s2">] Querying KDTREE for TAIL predictions&quot;</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;kdtree&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">tail_prediction</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_query_results</span>
+        <span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;head_negative_pool&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">head_negative_pool</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;tail_negative_pool&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">tail_negative_pool</span><span class="p">)</span>
+
+        <span class="c1"># Clone Negative for corruption (cloned the number of negative per positive )</span>
+        <span class="n">negative_batch</span> <span class="o">=</span> <span class="n">positive_batch</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
+        <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">positive_batch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">))):</span>
+
+            <span class="n">batch_start</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span>
+            <span class="n">batch_end</span> <span class="o">=</span> <span class="n">batch_start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span>
+
+            <span class="n">triple_batch</span> <span class="o">=</span> <span class="n">negative_batch</span><span class="p">[</span><span class="n">batch_start</span><span class="p">:</span><span class="n">batch_end</span><span class="p">]</span>
+            <span class="n">negative_heads</span><span class="p">,</span> <span class="n">negative_tails</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">choose_from_pools</span><span class="p">(</span>
+                <span class="n">positive_batch</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">i</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Head Corruption</span>
+            <span class="n">triple_batch</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span> <span class="o">//</span> <span class="mi">2</span><span class="p">][:,</span> <span class="n">HEAD</span><span class="p">]</span> <span class="o">=</span> <span class="n">negative_heads</span>
+
+            <span class="c1"># Tail Corruption</span>
+            <span class="n">triple_batch</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span> <span class="o">//</span> <span class="mi">2</span> <span class="p">:][:,</span> <span class="n">TAIL</span><span class="p">]</span> <span class="o">=</span> <span class="n">negative_tails</span>
+
+        <span class="k">return</span> <span class="n">negative_batch</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="n">batch_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NearMissNegativeSampler.strategy_negative_pool">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.NearMissNegativeSampler.strategy_negative_pool">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">strategy_negative_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">internal_id</span><span class="p">):</span>
+
+        <span class="n">head_positive_pool</span><span class="p">,</span> <span class="n">tail_positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_positive_pool</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+
+        <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;head_negative_pool&quot;</span><span class="p">][</span><span class="n">internal_id</span><span class="p">]</span>
+        <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;tail_negative_pool&quot;</span><span class="p">][</span><span class="n">internal_id</span><span class="p">]</span>
+
+        <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="n">head_negative_pool</span><span class="p">[</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">head_negative_pool</span><span class="p">,</span> <span class="n">head_positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="n">tail_negative_pool</span><span class="p">[</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">tail_negative_pool</span><span class="p">,</span> <span class="n">tail_positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">head_negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">head_negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">tail_negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tail_negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">head_negative_pool</span><span class="p">,</span> <span class="n">tail_negative_pool</span></div>
+
+
+<div class="viewcode-block" id="NearMissNegativeSampler.choose_from_pools">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.NearMissNegativeSampler.choose_from_pools">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">choose_from_pools</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">triple</span><span class="p">,</span> <span class="n">internal_id</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">:</span>
+        <span class="n">head_negative_pool</span><span class="p">,</span> <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_negative_pool</span><span class="p">(</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">HEAD</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">REL</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">TAIL</span><span class="p">]),</span> <span class="n">internal_id</span>
+        <span class="p">)</span>
+
+        <span class="n">num_head_negatives</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">num_tail_negatives</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span> <span class="o">-</span> <span class="n">num_head_negatives</span>
+
+        <span class="n">negative_heads</span> <span class="o">=</span> <span class="n">head_negative_pool</span><span class="p">[</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">head_negative_pool</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">num_head_negatives</span><span class="p">,))</span>
+        <span class="p">]</span>
+        <span class="n">negativs_tails</span> <span class="o">=</span> <span class="n">tail_negative_pool</span><span class="p">[</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">tail_negative_pool</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">num_tail_negatives</span><span class="p">,))</span>
+        <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">negative_heads</span><span class="p">,</span> <span class="n">negativs_tails</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Ivan Diliso.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
