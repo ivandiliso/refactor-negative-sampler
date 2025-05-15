@@ -41,6 +41,7 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../quick.html">Quick Start Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../extension.html">PyKEEN Extension</a></li>
 </ul>
 
@@ -69,20 +70,16 @@
            <div itemprop="articleBody">
              
   <h1>Source code for extension.sampling</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sys</span><span class="w"> </span><span class="kn">import</span> <span class="n">getsizeof</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span>  <span class="n">Tuple</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tqdm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">extension.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimpleLogger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pykeen.sampling</span><span class="w"> </span><span class="kn">import</span> <span class="n">NegativeSampler</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pykeen.triples</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoreTriplesFactory</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pykeen.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BoolTensor</span><span class="p">,</span> <span class="n">EntityMapping</span><span class="p">,</span> <span class="n">LongTensor</span><span class="p">,</span> <span class="n">MappedTriples</span><span class="p">,</span> <span class="n">Target</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pykeen.typing</span><span class="w"> </span><span class="kn">import</span>  <span class="n">MappedTriples</span><span class="p">,</span> <span class="n">Target</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">lru_cache</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pykeen.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">TransE</span><span class="p">,</span> <span class="n">RESCAL</span><span class="p">,</span> <span class="n">ERModel</span>
@@ -216,21 +213,21 @@
 
                 <span class="c1"># Head Corruption</span>
                 <span class="n">negative_batch</span><span class="p">[</span><span class="n">batch_start</span><span class="p">:</span><span class="n">batch_end</span><span class="p">][</span><span class="n">targets</span><span class="p">,</span> <span class="n">HEAD</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_choose_from_pools</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">choose_from_pools</span><span class="p">(</span>
                         <span class="n">positive_batch</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;head&quot;</span><span class="p">,</span> <span class="n">num_head_negatives</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
 
                 <span class="c1"># Tail Corruption</span>
                 <span class="n">negative_batch</span><span class="p">[</span><span class="n">batch_start</span><span class="p">:</span><span class="n">batch_end</span><span class="p">][</span><span class="o">~</span><span class="n">targets</span><span class="p">,</span> <span class="n">TAIL</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_choose_from_pools</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">choose_from_pools</span><span class="p">(</span>
                         <span class="n">positive_batch</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;tail&quot;</span><span class="p">,</span> <span class="n">num_tail_negatives</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
 
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="s2">&quot;head&quot;</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">])</span>
-                <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_choose_from_pools</span><span class="p">(</span><span class="n">positive_batch</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">target</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">choose_from_pools</span><span class="p">(</span><span class="n">positive_batch</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">target</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
                 <span class="n">negative_batch</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">TARGET_TO_INDEX</span><span class="p">[</span><span class="n">target</span><span class="p">]]</span> <span class="o">=</span> <span class="n">negative_pool</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="n">negative_batch</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="n">batch_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_negs_per_pos</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span></div>
@@ -251,7 +248,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            torch.tensor: Chosen negatives from the negative pool</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_negative_pool</span><span class="p">(</span>
+        <span class="n">negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy_negative_pool</span><span class="p">(</span>
             <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">HEAD</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">REL</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">TAIL</span><span class="p">]),</span> <span class="n">target</span>
         <span class="p">)</span>
 
@@ -570,7 +567,7 @@
 <div class="viewcode-block" id="ClassesNegativeSampler.average_pool_size">
 <a class="viewcode-back" href="../../extension.html#extension.sampling.ClassesNegativeSampler.average_pool_size">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">average_pool_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_triples</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_poolsize_aggregate</span><span class="p">(</span><span class="n">check_triples</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_poolsize_aggregate</span><span class="p">(</span><span class="n">check_triples</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ClassesNegativeSampler.compute_poolsize_aggregate">
@@ -742,7 +739,9 @@
             <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapped_triples</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="NearestNeighbourNegativeSampler.generate_subset">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.NearestNeighbourNegativeSampler.generate_subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapped_triples</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 
         <span class="n">subset</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="n">subset</span><span class="p">[</span><span class="s2">&quot;positive_triples&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapped_triples</span>
@@ -754,30 +753,33 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">sampling_model</span><span class="o">.</span><span class="n">entity_representations</span><span class="p">[</span><span class="mi">0</span><span class="p">]()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
         <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">subset</span>
+        <span class="k">return</span> <span class="n">subset</span></div>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_strategy_negative_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
 
-        <span class="n">head_positive_pool</span><span class="p">,</span> <span class="n">tail_positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_positive_pool</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+<div class="viewcode-block" id="NearestNeighbourNegativeSampler.strategy_negative_pool">
+<a class="viewcode-back" href="../../extension.html#extension.sampling.NearestNeighbourNegativeSampler.strategy_negative_pool">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">strategy_negative_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
 
-        <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_kdtree</span><span class="p">(</span><span class="n">h</span><span class="p">))</span>
-        <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_kdtree</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">target</span> <span class="o">==</span> <span class="s2">&quot;head&quot;</span><span class="p">:</span>
+            <span class="n">positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">t</span><span class="p">,</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">)</span>
+            <span class="n">negative_pool</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_kdtree</span><span class="p">(</span><span class="n">h</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">)</span>
+            <span class="n">negative_pool</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_kdtree</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
 
-        <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="n">head_negative_pool</span><span class="p">[</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">head_negative_pool</span><span class="p">,</span> <span class="n">head_positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">negative_pool</span> <span class="o">=</span> <span class="n">negative_pool</span><span class="p">[</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">,</span> <span class="n">positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="p">]</span>
-        <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="n">tail_negative_pool</span><span class="p">[</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">tail_negative_pool</span><span class="p">,</span> <span class="n">tail_positive_pool</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="p">]</span>
 
-        <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">head_negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">head_negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-        <span class="p">)</span>
-        <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">tail_negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tail_negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-        <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">head_negative_pool</span><span class="p">,</span> <span class="n">tail_negative_pool</span>
+        <span class="n">negative_pool</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">negative_pool</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">negative_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
+   
+
+        <span class="k">return</span> <span class="n">negative_pool</span></div>
+
 
 <div class="viewcode-block" id="NearestNeighbourNegativeSampler.query_kdtree">
 <a class="viewcode-back" href="../../extension.html#extension.sampling.NearestNeighbourNegativeSampler.query_kdtree">[docs]</a>
@@ -951,7 +953,8 @@
 <a class="viewcode-back" href="../../extension.html#extension.sampling.NearMissNegativeSampler.strategy_negative_pool">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">strategy_negative_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">internal_id</span><span class="p">):</span>
 
-        <span class="n">head_positive_pool</span><span class="p">,</span> <span class="n">tail_positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_positive_pool</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        <span class="n">head_positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">t</span><span class="p">,</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">)</span>
+        <span class="n">tail_positive_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_pool</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="s2">&quot;tail&quot;</span><span class="p">)</span>
 
         <span class="n">head_negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;head_negative_pool&quot;</span><span class="p">][</span><span class="n">internal_id</span><span class="p">]</span>
         <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">[</span><span class="s2">&quot;tail_negative_pool&quot;</span><span class="p">][</span><span class="n">internal_id</span><span class="p">]</span>
@@ -976,7 +979,9 @@
 <div class="viewcode-block" id="NearMissNegativeSampler.choose_from_pools">
 <a class="viewcode-back" href="../../extension.html#extension.sampling.NearMissNegativeSampler.choose_from_pools">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">choose_from_pools</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">triple</span><span class="p">,</span> <span class="n">internal_id</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">:</span>
-        <span class="n">head_negative_pool</span><span class="p">,</span> <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy_negative_pool</span><span class="p">(</span>
+
+
+        <span class="n">head_negative_pool</span><span class="p">,</span> <span class="n">tail_negative_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy_negative_pool</span><span class="p">(</span>
             <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">HEAD</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">REL</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">triple</span><span class="p">[</span><span class="n">TAIL</span><span class="p">]),</span> <span class="n">internal_id</span>
         <span class="p">)</span>
 
@@ -992,6 +997,8 @@
 
         <span class="k">return</span> <span class="n">negative_heads</span><span class="p">,</span> <span class="n">negativs_tails</span></div>
 </div>
+
+    
 
 </pre></div>
 
