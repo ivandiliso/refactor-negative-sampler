@@ -1,8 +1,3 @@
-"""
-Author: Ivan Diliso
-Description: Custom dataloader for metadata-enriched datases
-"""
-
 import pykeen
 import pykeen.datasets
 from pykeen.datasets.base import Dataset

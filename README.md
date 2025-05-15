@@ -1,5 +1,10 @@
 # Enhancing PyKeen with Multiple Negative Sampling Solutions for Knowledge Graph Embedding Models
 [![DOI](https://zenodo.org/badge/971351696.svg)](https://doi.org/10.5281/zenodo.15413074)
+[![Docs](https://img.shields.io/badge/docs-online-success.svg)](https://ivandiliso.github.io/refactor-negative-sampler/)
+
+## Documentation
+
+In depth documentation is available in the apposite GitHub Page https://ivandiliso.github.io/refactor-negative-sampler/
 
 ## Folder Structure
 

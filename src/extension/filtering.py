@@ -1,8 +1,3 @@
-"""
-Author: Ivan Diliso
-Description: Custom function that extends the PyKeen filtering capabilities
-"""
-
 import pykeen
 import torch
 from pykeen.sampling.filtering import PythonSetFilterer
