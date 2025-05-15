@@ -1,14 +1,9 @@
-import pykeen
-import pykeen.datasets
 from pykeen.datasets.base import Dataset
 from pykeen.triples import TriplesFactory
 from pathlib import Path
 import json
-import ast
-import pandas as pd
-from pykeen.datasets import get_dataset
-import zipfile
-import gdown
+
+
 from extension.constants import (
     ENTITY_TO_ID_FILENAME,
     RELATION_TO_ID_FILENAME,

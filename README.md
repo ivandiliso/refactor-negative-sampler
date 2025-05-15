@@ -4,7 +4,7 @@
 
 ## Documentation
 
-In depth documentation is available in the apposite GitHub Page https://ivandiliso.github.io/refactor-negative-sampler/
+In depth documentation and tutorials are available in the apposite GitHub Page https://ivandiliso.github.io/refactor-negative-sampler/
 
 ## Folder Structure
 

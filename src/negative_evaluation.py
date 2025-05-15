@@ -122,7 +122,7 @@ print(sampling_model)
 params = SimpleNamespace()
 
 
-params.negative_sampler_name = "classes"
+params.negative_sampler_name = "adversarial"
 params.local_file = Path().cwd() / "cached" / (
     params.negative_sampler_name + dataset_name + ".bin"
 )
