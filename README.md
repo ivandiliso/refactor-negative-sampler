@@ -60,7 +60,9 @@ Each dataset is provided with the following folder structure
 
 ## Instructions
 
-1. Download the datasets from the provided links, put them in the data folder in the main directory
+A fully detailed tutorial is provided in `src/tutorial.ipynb`.Detailed instruction are available in https://ivandiliso.github.io/refactor-negative-sampler/
+
+1. Unzip the datasets files
 2. Install the dependencies found in the requirements.txt file
 3. Manually run the example python files, or use one of the provided scripts in the scripts folder
 
