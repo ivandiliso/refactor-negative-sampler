@@ -48,7 +48,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         integrate: bool = False,
         **kwargs,
     ):
-        """_summary_
+        """Instantiate the base SubsetNegativeSampler class
 
         Args:
             mapped_triples (MappedTriples): Triples used for computation of subsets and filtering
@@ -72,10 +72,10 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
 
         self.integrate = integrate
         self.mapped_triples = mapped_triples
-        self.subset = self._generate_subset(mapped_triples, **kwargs)
+        self.subset = self.generate_subset(mapped_triples, **kwargs)
 
     @abstractmethod
-    def _generate_subset(self, mapped_triples: MappedTriples, **kwargs):
+    def generate_subset(self, mapped_triples: MappedTriples, **kwargs):
         """Generated the supporting subset to corrupt the triple
 
         Args:
@@ -85,7 +85,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
 
     @abstractmethod
     @lru_cache(maxsize=1024, typed=False)
-    def _strategy_negative_pool(
+    def strategy_negative_pool(
         self, h: int, r: int, t: int, target: str
     ) -> torch.tensor:
         """Compute the negative pool for a triple and the target for corruption
@@ -154,7 +154,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
 
         return negative_batch.view(*batch_shape, self.num_negs_per_pos, 3)
 
-    def _choose_from_pools(
+    def choose_from_pools(
         self, triple: torch.tensor, target: str, target_size: int
     ) -> torch.tensor:
         """Sample negatives from the negative pool
@@ -200,7 +200,7 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         return negatives
 
     @lru_cache(maxsize=1024, typed=False)
-    def _get_positive_pool(self, e: int, r: int, target: str) -> torch.tensor:
+    def get_positive_pool(self, e: int, r: int, target: str) -> torch.tensor:
         """Returns all the real negatives given an entity, a relation, and the taget for corruption.
         if target == "head" returns the full availabile negative entities for (*, rel, entity)
         if target == "tail" returns the full availabile negative entities for (entity, rel, *)
@@ -235,9 +235,9 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         head_relation = torch.unique(check_triples[:, [HEAD, REL]], dim=0)
         tail_relation = torch.unique(check_triples[:, [TAIL, REL]], dim=0)
 
-        return self._compute_poolsize_aggregate(head_relation, tail_relation)
+        return self.compute_poolsize_aggregate(head_relation, tail_relation)
 
-    def _compute_poolsize_aggregate(
+    def compute_poolsize_aggregate(
         self, head_relation: torch.tensor, tail_relation: torch.tensor
     ) -> Tuple[int, dict]:
         """Compute the average pool size for every h,r combination and r,t combination, strategy specific implementation
@@ -258,17 +258,17 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         for comb in tqdm.tqdm(head_relation):
             e = int(comb[0])
             r = int(comb[1])
-            negative_pool = self._strategy_negative_pool(e, r, -1, "tail")
+            negative_pool = self.strategy_negative_pool(e, r, -1, "tail")
 
             if -1 in negative_pool:
                 if self.integrate:
                     pool_size = self.num_entities - len(
-                        self._get_positive_pool(e, r, "tail")
+                        self.get_positive_pool(e, r, "tail")
                     )
                 else:
                     pool_size = 0
             else:
-                positive_pool = self._get_positive_pool(e, r, "tail")
+                positive_pool = self.get_positive_pool(e, r, "tail")
                 pool_size = int(
                     torch.isin(negative_pool, positive_pool, invert=True).sum()
                 )
@@ -282,16 +282,16 @@ class SubSetNegativeSampler(NegativeSampler, ABC):
         for comb in tqdm.tqdm(tail_relation):
             e = int(comb[0])
             r = int(comb[1])
-            negative_pool = self._strategy_negative_pool(-1, r, e, "head")
+            negative_pool = self.strategy_negative_pool(-1, r, e, "head")
             if -1 in negative_pool:
                 if self.integrate:
                     pool_size = self.num_entities - len(
-                        self._get_positive_pool(e, r, "head")
+                        self.get_positive_pool(e, r, "head")
                     )
                 else:
                     pool_size = 0
             else:
-                positive_pool = self._get_positive_pool(e, r, "head")
+                positive_pool = self.get_positive_pool(e, r, "head")
                 pool_size = int(
                     torch.isin(negative_pool, positive_pool, invert=True).sum()
                 )
@@ -317,7 +317,7 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _generate_subset(self, mapped_triples):
+    def generate_subset(self, mapped_triples):
         relations = torch.unique(mapped_triples[:, REL]).tolist()
         subset = dict()
         for r in relations:
@@ -329,7 +329,7 @@ class CorruptNegativeSampler(SubSetNegativeSampler):
         return subset
 
     @lru_cache(maxsize=1024)
-    def _strategy_negative_pool(self, h, r, t, target):
+    def strategy_negative_pool(self, h, r, t, target):
         return self.subset[r][target]
 
 
@@ -351,7 +351,7 @@ class TypedNegativeSampler(SubSetNegativeSampler):
         self.mapping = {"head": "domain", "tail": "range"}
 
     @lru_cache(maxsize=1024)
-    def _strategy_negative_pool(self, h, r, t, target):
+    def strategy_negative_pool(self, h, r, t, target):
 
         target_class = self.relation_domain_range[r][self.mapping[target]]
 
@@ -363,7 +363,7 @@ class TypedNegativeSampler(SubSetNegativeSampler):
 
         return negative_pool
 
-    def _generate_subset(self, mapped_triples, **kwargs):
+    def generate_subset(self, mapped_triples, **kwargs):
 
         classes_dict = dict()
 
@@ -402,7 +402,7 @@ class ClassesNegativeSampler(SubSetNegativeSampler):
         super().__init__(**kwargs)
 
     @lru_cache(maxsize=1024)
-    def _strategy_negative_pool(self, h, r, t, target):
+    def strategy_negative_pool(self, h, r, t, target):
 
         # Only for evaluation purposes, remove the [0]
 
@@ -427,7 +427,7 @@ class ClassesNegativeSampler(SubSetNegativeSampler):
 
         return negative_pool
 
-    def _generate_subset(self, mapped_triples, **kwargs):
+    def generate_subset(self, mapped_triples, **kwargs):
 
         classes_dict = dict()
 
@@ -449,24 +449,23 @@ class ClassesNegativeSampler(SubSetNegativeSampler):
     def average_pool_size(self, check_triples):
         return self._compute_poolsize_aggregate(check_triples)
 
-    def _compute_poolsize_aggregate(self, check_triples):
+    def compute_poolsize_aggregate(self, check_triples):
 
         total = 0
         less_dict = {0: 0, 2: 0, 10: 0, 40: 0, 100: 0}
         total_len = len(check_triples)
 
-        print(total_len)
 
         print("[SubsetNegativeSampler] Computing <h,r,*> Negative Pools")
         for comb in tqdm.tqdm(check_triples):
             h = int(comb[HEAD])
             r = int(comb[REL])
             t = int(comb[TAIL])
-            negative_pool = self._strategy_negative_pool(h, r, t, "tail")
+            negative_pool = self.strategy_negative_pool(h, r, t, "tail")
             if -1 in negative_pool:
                 pool_size = 0
             else:
-                positive_pool = self._get_positive_pool(h, r, "tail")
+                positive_pool = self.get_positive_pool(h, r, "tail")
                 pool_size = int(
                     torch.isin(negative_pool, positive_pool, invert=True).sum()
                 )
@@ -480,11 +479,11 @@ class ClassesNegativeSampler(SubSetNegativeSampler):
             h = int(comb[HEAD])
             r = int(comb[REL])
             t = int(comb[TAIL])
-            negative_pool = self._strategy_negative_pool(h, r, t, "head")
+            negative_pool = self.strategy_negative_pool(h, r, t, "head")
             if -1 in negative_pool:
                 pool_size = 0
             else:
-                positive_pool = self._get_positive_pool(t, r, "head")
+                positive_pool = self.get_positive_pool(t, r, "head")
                 pool_size = int(
                     torch.isin(negative_pool, positive_pool, invert=True).sum()
                 )
@@ -522,7 +521,7 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
             **kwargs,
         )
 
-    def _generate_subset(self, mapped_triples, **kwargs):
+    def generate_subset(self, mapped_triples, **kwargs):
 
         subset = dict()
 
@@ -549,23 +548,23 @@ class RelationalNegativeSampler(SubSetNegativeSampler):
 
         return subset
 
-    def _strategy_negative_pool(self, h, r, t, target):
+    def strategy_negative_pool(self, h, r, t, target):
 
         # If corrupting HEAD we take the TAIL entity to use as a pivot for the subset
         # If corrupting TAIL we take the HEAD entity to use as a pivot for the subset d
 
         match target:
             case "head":
-                negative_pool = self._get_subset(t, r, target)
+                negative_pool = self.get_subset(t, r, target)
             case "tail":
-                negative_pool = self._get_subset(h, r, target)
+                negative_pool = self.get_subset(h, r, target)
 
         negative_pool = negative_pool if len(negative_pool) > 0 else torch.tensor([-1])
 
         return negative_pool
 
     @lru_cache(maxsize=1024, typed=None)
-    def _get_subset(self, entity, rel, target):
+    def get_subset(self, entity, rel, target):
 
         pivot_entity_position = SWAP_TARGET[target]
         subset = self.subset[entity][pivot_entity_position]
@@ -619,8 +618,8 @@ class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
 
         head_positive_pool, tail_positive_pool = self._get_positive_pool(h, r, t)
 
-        head_negative_pool = torch.tensor(self._query_kdtree(h))
-        tail_negative_pool = torch.tensor(self._query_kdtree(t))
+        head_negative_pool = torch.tensor(self.query_kdtree(h))
+        tail_negative_pool = torch.tensor(self.query_kdtree(t))
 
         head_negative_pool = head_negative_pool[
             torch.isin(head_negative_pool, head_positive_pool, invert=True)
@@ -639,7 +638,7 @@ class NearestNeighbourNegativeSampler(SubSetNegativeSampler):
         return head_negative_pool, tail_negative_pool
 
     @lru_cache(maxsize=1024, typed=False)
-    def _query_kdtree(self, entity_id):
+    def query_kdtree(self, entity_id):
 
         search_entity = self.subset["entity_representations"][entity_id]
         _, indices = self.subset["kdtree"].query(
@@ -682,7 +681,7 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
             **kwargs,
         )
 
-    def _generate_subset(self, mapped_triples: MappedTriples, **kwargs) -> Dict:
+    def generate_subset(self, mapped_triples: MappedTriples, **kwargs) -> Dict:
         """Generate the auxiliary subset to aid in triple corruption. Specifically
         it creates the BallTree structure with the filtering triples (in Numpy format)
 
@@ -782,7 +781,7 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
             batch_end = batch_start + self.num_negs_per_pos
 
             triple_batch = negative_batch[batch_start:batch_end]
-            negative_heads, negative_tails = self._choose_from_pools(
+            negative_heads, negative_tails = self.choose_from_pools(
                 positive_batch[i], i
             )
 
@@ -794,7 +793,7 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
 
         return negative_batch.view(*batch_shape, self.num_negs_per_pos, 3)
 
-    def _strategy_negative_pool(self, h, r, t, internal_id):
+    def strategy_negative_pool(self, h, r, t, internal_id):
 
         head_positive_pool, tail_positive_pool = self._get_positive_pool(h, r, t)
 
@@ -817,7 +816,7 @@ class NearMissNegativeSampler(SubSetNegativeSampler):
 
         return head_negative_pool, tail_negative_pool
 
-    def _choose_from_pools(self, triple, internal_id) -> torch.tensor:
+    def choose_from_pools(self, triple, internal_id) -> torch.tensor:
         head_negative_pool, tail_negative_pool = self._strategy_negative_pool(
             int(triple[HEAD]), int(triple[REL]), int(triple[TAIL]), internal_id
         )
