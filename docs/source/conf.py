@@ -8,7 +8,7 @@
 import os
 import sys
 from pathlib import Path
-sys.path.insert(0, "/home/navis/dev/refactor-negative-sampler/src")
+sys.path.insert(0, "/Users/navis/dev/refactor-negative-sampler/src")
 
 
 project = 'PyKEEN Negative Sampling Extension'
