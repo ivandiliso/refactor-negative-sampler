@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="&lt;no title&gt;" href="modules.html" /> 
+    <link rel="next" title="Quick Start Guide" href="quick.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -43,6 +43,7 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="quick.html">Quick Start Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="extension.html">PyKEEN Extension</a></li>
 </ul>
 
@@ -72,19 +73,32 @@
              
   <section id="pykeen-negative-sampling-extension-documentation">
 <h1>PyKEEN Negative Sampling Extension documentation<a class="headerlink" href="#pykeen-negative-sampling-extension-documentation" title="Link to this heading"></a></h1>
-<p>Add your content using <code class="docutils literal notranslate"><span class="pre">reStructuredText</span></code> syntax. See the
-<a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html">reStructuredText</a>
-documentation for details.</p>
+<p>PyKEEN Negative Sampler Extension from “d’Amato, C., Diliso, I., Fanizzi, N., &amp; Saeed, Z. (2025). Enhancing PyKEEN with Multiple Negative Sampling Solutions for Knowledge Graph Embedding Models (Version 0.0.0.1) [Computer software]. <a class="reference external" href="https://doi.org/10.5281/zenodo.15413075">https://doi.org/10.5281/zenodo.15413075</a>”.</p>
+<p>This library is a modular and extensible add-on to the PyKEEN framework, designed to provide standardized implementations of advanced negative sampling strategies for knowledge graph embedding (KGE) models.This library introduces both static and dynamic negative samplers—ranging from type-based and relational filters to model-guided adversarial methods—within a unified interface fully compatible with PyKEEN’s training, evaluation, and hyperparameter tuning workflows. Built for researchers and practitioners, the extension simplifies the development and integration of new samplers while ensuring reproducibility and performance diagnostics through automated pool statistics and flexible fallback strategies. Whether you’re testing new sampling techniques or aiming for fair benchmarking across KGE models, this library provides a principled foundation for scalable and customizable negative sampling.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="quick.html">Quick Start Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="extension.html">PyKEEN Extension</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="extension.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="extension.html#module-extension.constants">Constants</a></li>
-<li class="toctree-l2"><a class="reference internal" href="extension.html#module-extension.dataset">Dataset</a></li>
-<li class="toctree-l2"><a class="reference internal" href="extension.html#module-extension.filtering">Filtering</a></li>
-<li class="toctree-l2"><a class="reference internal" href="extension.html#module-extension.sampling">Sampling</a></li>
-<li class="toctree-l2"><a class="reference internal" href="extension.html#module-extension">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#constants">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#dataset">Dataset</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#extension.dataset.OnMemoryDataset"><code class="docutils literal notranslate"><span class="pre">OnMemoryDataset</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#filtering">Filtering</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#extension.filtering.NullPythonSetFilterer"><code class="docutils literal notranslate"><span class="pre">NullPythonSetFilterer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#sampling">Sampling</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#extension.sampling.ClassesNegativeSampler"><code class="docutils literal notranslate"><span class="pre">ClassesNegativeSampler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#extension.sampling.CorruptNegativeSampler"><code class="docutils literal notranslate"><span class="pre">CorruptNegativeSampler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#extension.sampling.NearMissNegativeSampler"><code class="docutils literal notranslate"><span class="pre">NearMissNegativeSampler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#extension.sampling.NearestNeighbourNegativeSampler"><code class="docutils literal notranslate"><span class="pre">NearestNeighbourNegativeSampler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#extension.sampling.RelationalNegativeSampler"><code class="docutils literal notranslate"><span class="pre">RelationalNegativeSampler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#extension.sampling.SubSetNegativeSampler"><code class="docutils literal notranslate"><span class="pre">SubSetNegativeSampler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#extension.sampling.TypedNegativeSampler"><code class="docutils literal notranslate"><span class="pre">TypedNegativeSampler</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -95,7 +109,7 @@ documentation for details.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="modules.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="quick.html" class="btn btn-neutral float-right" title="Quick Start Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

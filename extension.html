@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="&lt;no title&gt;" href="modules.html" /> 
+    <link rel="prev" title="PyKEEN Negative Sampling Extension documentation" href="index.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -44,20 +44,19 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">PyKEEN Extension</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#module-extension.constants">Constants</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#module-extension.dataset">Dataset</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#constants">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset">Dataset</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#extension.dataset.OnMemoryDataset"><code class="docutils literal notranslate"><span class="pre">OnMemoryDataset</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-extension.filtering">Filtering</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#filtering">Filtering</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#extension.filtering.NullPythonSetFilterer"><code class="docutils literal notranslate"><span class="pre">NullPythonSetFilterer</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#extension.filtering.NullPythonSetFilterer.contains"><code class="docutils literal notranslate"><span class="pre">NullPythonSetFilterer.contains()</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-extension.sampling">Sampling</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#sampling">Sampling</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#extension.sampling.ClassesNegativeSampler"><code class="docutils literal notranslate"><span class="pre">ClassesNegativeSampler</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#extension.sampling.ClassesNegativeSampler.average_pool_size"><code class="docutils literal notranslate"><span class="pre">ClassesNegativeSampler.average_pool_size()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#extension.sampling.ClassesNegativeSampler.compute_poolsize_aggregate"><code class="docutils literal notranslate"><span class="pre">ClassesNegativeSampler.compute_poolsize_aggregate()</span></code></a></li>
@@ -104,7 +103,6 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-extension">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -123,7 +121,6 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-          <li class="breadcrumb-item"><a href="modules.html">&lt;no title&gt;</a></li>
       <li class="breadcrumb-item active">PyKEEN Extension</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/extension.rst.txt" rel="nofollow"> View page source</a>
@@ -136,17 +133,18 @@
              
   <section id="pykeen-extension">
 <h1>PyKEEN Extension<a class="headerlink" href="#pykeen-extension" title="Link to this heading"></a></h1>
-<section id="submodules">
-<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+<section id="constants">
+<h2>Constants<a class="headerlink" href="#constants" title="Link to this heading"></a></h2>
+<p>This module defines shared constant values used throughout the PyKEEN negative sampler extension.
+These constants ensure consistency and avoid hardcoding fixed values across the implementation.
+Typical contents include default parameter values, files naming conventions.</p>
 </section>
-<section id="module-extension.constants">
-<span id="constants"></span><h2>Constants<a class="headerlink" href="#module-extension.constants" title="Link to this heading"></a></h2>
-</section>
-<section id="module-extension.dataset">
-<span id="dataset"></span><h2>Dataset<a class="headerlink" href="#module-extension.dataset" title="Link to this heading"></a></h2>
-<p>Author: Ivan Diliso
-Description: Custom dataloader for metadata-enriched datases</p>
-<dl class="py class">
+<section id="dataset">
+<span id="module-extension.constants"></span><h2>Dataset<a class="headerlink" href="#dataset" title="Link to this heading"></a></h2>
+<p>Custom dataset loader designed to extend PyKEEN’s dataset handling.
+Enables support for additional metadata, filtering logic, and preprocessing tailored
+to advanced negative sampling strategies.</p>
+<dl class="py class" id="module-extension.dataset">
 <dt class="sig sig-object py" id="extension.dataset.OnMemoryDataset">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">extension.dataset.</span></span><span class="sig-name descname"><span class="pre">OnMemoryDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_entity_classes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_domain_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/extension/dataset.html#OnMemoryDataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#extension.dataset.OnMemoryDataset" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></p>
@@ -194,11 +192,11 @@ format. The folder should contain the following files</p>
 </dd></dl>
 
 </section>
-<section id="module-extension.filtering">
-<span id="filtering"></span><h2>Filtering<a class="headerlink" href="#module-extension.filtering" title="Link to this heading"></a></h2>
-<p>Author: Ivan Diliso
-Description: Custom function that extends the PyKeen filtering capabilities</p>
-<dl class="py class">
+<section id="filtering">
+<h2>Filtering<a class="headerlink" href="#filtering" title="Link to this heading"></a></h2>
+<p>Implements extended filtering mechanisms for training and evaluation.
+Includes logic for excluding invalid or null-indexed negatives, such as with the NullPythonSetFilterer.</p>
+<dl class="py class" id="module-extension.filtering">
 <dt class="sig sig-object py" id="extension.filtering.NullPythonSetFilterer">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">extension.filtering.</span></span><span class="sig-name descname"><span class="pre">NullPythonSetFilterer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mapped_triples</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/extension/filtering.html#NullPythonSetFilterer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#extension.filtering.NullPythonSetFilterer" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">PythonSetFilterer</span></code></p>
@@ -224,9 +222,12 @@ Whether the triples are contained in the training triples.</p>
 </dd></dl>
 
 </section>
-<section id="module-extension.sampling">
-<span id="sampling"></span><h2>Sampling<a class="headerlink" href="#module-extension.sampling" title="Link to this heading"></a></h2>
-<dl class="py class">
+<section id="sampling">
+<h2>Sampling<a class="headerlink" href="#sampling" title="Link to this heading"></a></h2>
+<p>Defines custom negative sampling strategies with support for static and dynamic approaches.
+Built to integrate seamlessly with PyKEEN’s pipeline while enabling schema-aware, type-based,
+and model-driven sampling logic.</p>
+<dl class="py class" id="module-extension.sampling">
 <dt class="sig sig-object py" id="extension.sampling.ClassesNegativeSampler">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">extension.sampling.</span></span><span class="sig-name descname"><span class="pre">ClassesNegativeSampler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">entity_classes_dict</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/extension/sampling.html#ClassesNegativeSampler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#extension.sampling.ClassesNegativeSampler" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#extension.sampling.SubSetNegativeSampler" title="extension.sampling.SubSetNegativeSampler"><code class="xref py py-class docutils literal notranslate"><span class="pre">SubSetNegativeSampler</span></code></a></p>
@@ -688,16 +689,13 @@ dictionary of class memebership for each entity (mapped to IDS)</p>
 </dd></dl>
 
 </section>
-<section id="module-extension">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-extension" title="Link to this heading"></a></h2>
-</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="modules.html" class="btn btn-neutral float-left" title="&lt;no title&gt;" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="index.html" class="btn btn-neutral float-left" title="PyKEEN Negative Sampling Extension documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
 
   <hr/>
