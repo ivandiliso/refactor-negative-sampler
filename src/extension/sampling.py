@@ -447,7 +447,7 @@ class ClassesNegativeSampler(SubSetNegativeSampler):
         return classes_dict
 
     def average_pool_size(self, check_triples):
-        return self._compute_poolsize_aggregate(check_triples)
+        return self.compute_poolsize_aggregate(check_triples)
 
     def compute_poolsize_aggregate(self, check_triples):
 
